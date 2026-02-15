@@ -5,9 +5,10 @@
 
 ## Project Overview
 
-- **Type**: [프로젝트 타입 - web app, API, library 등]
-- **Stack**: [기술 스택 - language, framework, database 등]
-- **Status**: [Active Development / Maintenance / Planning]
+- **Type**: iOS Health & Fitness App (HRV/RHR 기반 컨디션 분석)
+- **Stack**: Swift 6 / SwiftUI / HealthKit / SwiftData / CloudKit
+- **Target**: iOS 26+
+- **Status**: Active Development (MVP)
 
 ## Core Principles
 
@@ -107,3 +108,12 @@
 
 <!-- 교정 사항은 /retrospective 실행 시 자동으로 추가됩니다 -->
 <!-- 형식: ### YYYY-MM-DD: [교정 내용] -->
+
+### 2026-02-15: MVP 초기 구현 리뷰 교정
+
+1. **Domain 레이어에 SwiftUI import 금지**: `ConditionScore` 등 Domain 모델에 `Color` 프로퍼티를 넣으면 `import SwiftUI` 필요. Presentation의 Extension으로 분리할 것 (`{Type}+View.swift`)
+2. **ViewModel에 ModelContext 전달 금지**: ViewModel은 `createValidatedRecord() -> Record?` 패턴으로 검증+생성만 담당. View의 `@Environment(\.modelContext)`가 insert/delete 수행
+3. **사용자 입력은 항상 범위 검증**: SwiftData + CloudKit 환경에서 잘못된 데이터는 전 디바이스에 전파됨. 숫자 입력은 반드시 min/max 범위 체크
+4. **수학 함수 입력 도메인 검증**: `log()`, `sqrt()` 호출 전 입력값 > 0 확인. 결과의 `isNaN`, `isInfinite` 체크
+5. **HealthKit 쿼리 병렬화**: 독립 쿼리 2-3개는 `async let`, 4개+는 `withThrowingTaskGroup`. for 루프 내 await 금지
+6. **저장 버튼 idempotency**: `isSaving` 플래그로 중복 탭 방지
