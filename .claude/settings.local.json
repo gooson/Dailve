@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:every.to)",
+      "Bash(git -C /Users/shanks/work/Agentic-coding/BaseArchitecture rev-parse --git-dir)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(bash:*)",
+      "Bash(wc:*)",
+      "Bash(git -C /Users/shanks/work/Health rev-parse:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
