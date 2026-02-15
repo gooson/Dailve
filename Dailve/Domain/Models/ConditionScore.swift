@@ -1,6 +1,6 @@
 import Foundation
 
-struct ConditionScore: Sendable {
+struct ConditionScore: Sendable, Hashable {
     let score: Int
     let status: Status
     let date: Date

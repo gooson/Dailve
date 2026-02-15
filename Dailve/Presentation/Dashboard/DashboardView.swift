@@ -18,10 +18,13 @@ struct DashboardView: View {
                 } else {
                     // Hero Section
                     if let score = viewModel.conditionScore {
-                        ConditionHeroView(
-                            score: score,
-                            recentScores: viewModel.recentScores
-                        )
+                        NavigationLink(value: score) {
+                            ConditionHeroView(
+                                score: score,
+                                recentScores: viewModel.recentScores
+                            )
+                        }
+                        .buttonStyle(.plain)
                     } else if let status = viewModel.baselineStatus, !status.isReady {
                         BaselineProgressView(status: status)
                     }
@@ -46,6 +49,9 @@ struct DashboardView: View {
                 endPoint: .center
             )
             .ignoresSafeArea()
+        }
+        .navigationDestination(for: ConditionScore.self) { score in
+            ConditionScoreDetailView(score: score)
         }
         .navigationDestination(for: HealthMetric.self) { metric in
             MetricDetailView(metric: metric)
