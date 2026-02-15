@@ -8,8 +8,12 @@ final class SleepViewModel {
     var isLoading = false
     var errorMessage: String?
 
-    private let sleepService = SleepQueryService()
+    private let sleepService: SleepQuerying
     private let sleepScoreUseCase = CalculateSleepScoreUseCase()
+
+    init(sleepService: SleepQuerying? = nil) {
+        self.sleepService = sleepService ?? SleepQueryService(manager: .shared)
+    }
 
     private var todayOutput: CalculateSleepScoreUseCase.Output {
         sleepScoreUseCase.execute(input: .init(stages: todayStages))

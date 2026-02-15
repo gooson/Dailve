@@ -1,9 +1,14 @@
 import HealthKit
 
-struct HRVQueryService: Sendable {
+protocol HRVQuerying: Sendable {
+    func fetchHRVSamples(days: Int) async throws -> [HRVSample]
+    func fetchRestingHeartRate(for date: Date) async throws -> Double?
+}
+
+struct HRVQueryService: HRVQuerying, Sendable {
     private let manager: HealthKitManager
 
-    init(manager: HealthKitManager = .shared) {
+    init(manager: HealthKitManager) {
         self.manager = manager
     }
 

@@ -1,9 +1,13 @@
 import HealthKit
 
-struct WorkoutQueryService: Sendable {
+protocol WorkoutQuerying: Sendable {
+    func fetchWorkouts(days: Int) async throws -> [WorkoutSummary]
+}
+
+struct WorkoutQueryService: WorkoutQuerying, Sendable {
     private let manager: HealthKitManager
 
-    init(manager: HealthKitManager = .shared) {
+    init(manager: HealthKitManager) {
         self.manager = manager
     }
 

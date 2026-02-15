@@ -16,7 +16,11 @@ final class ExerciseViewModel {
     var newDistance: String = ""
     var newMemo = ""
 
-    private let workoutService = WorkoutQueryService()
+    private let workoutService: WorkoutQuerying
+
+    init(workoutService: WorkoutQuerying? = nil) {
+        self.workoutService = workoutService ?? WorkoutQueryService(manager: .shared)
+    }
 
     var allExercises: [ExerciseListItem] {
         var items: [ExerciseListItem] = []

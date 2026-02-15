@@ -11,18 +11,34 @@ final class DashboardViewModel {
     var isLoading = false
     var errorMessage: String?
 
-    private let hrvService = HRVQueryService()
-    private let sleepService = SleepQueryService()
-    private let workoutService = WorkoutQueryService()
-    private let stepsService = StepsQueryService()
+    private let healthKitManager: HealthKitManager
+    private let hrvService: HRVQuerying
+    private let sleepService: SleepQuerying
+    private let workoutService: WorkoutQuerying
+    private let stepsService: StepsQuerying
     private let scoreUseCase = CalculateConditionScoreUseCase()
 
+    init(
+        healthKitManager: HealthKitManager = .shared,
+        hrvService: HRVQuerying? = nil,
+        sleepService: SleepQuerying? = nil,
+        workoutService: WorkoutQuerying? = nil,
+        stepsService: StepsQuerying? = nil
+    ) {
+        self.healthKitManager = healthKitManager
+        self.hrvService = hrvService ?? HRVQueryService(manager: healthKitManager)
+        self.sleepService = sleepService ?? SleepQueryService(manager: healthKitManager)
+        self.workoutService = workoutService ?? WorkoutQueryService(manager: healthKitManager)
+        self.stepsService = stepsService ?? StepsQueryService(manager: healthKitManager)
+    }
+
     func loadData() async {
+        guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
 
         do {
-            try await HealthKitManager.shared.requestAuthorization()
+            try await healthKitManager.requestAuthorization()
             async let hrvTask = fetchHRVData()
             async let sleepTask = fetchSleepData()
             async let exerciseTask = fetchExerciseData()
@@ -105,6 +121,8 @@ final class DashboardViewModel {
         return metrics
     }
 
+    private let sleepScoreUseCase = CalculateSleepScoreUseCase()
+
     private func fetchSleepData() async throws -> HealthMetric? {
         let today = Date()
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today) ?? today
@@ -115,22 +133,17 @@ final class DashboardViewModel {
         let (stages, yesterdayStages) = try await (todayTask, yesterdayTask)
         guard !stages.isEmpty else { return nil }
 
-        let totalMinutes = stages
-            .filter { $0.stage != .awake }
-            .map(\.duration)
-            .reduce(0, +) / 60.0
+        let todayOutput = sleepScoreUseCase.execute(input: .init(stages: stages))
+        let yesterdayOutput = sleepScoreUseCase.execute(input: .init(stages: yesterdayStages))
 
-        let yesterdayMinutes = yesterdayStages
-            .filter { $0.stage != .awake }
-            .map(\.duration)
-            .reduce(0, +) / 60.0
-
-        let change: Double? = yesterdayMinutes > 0 ? totalMinutes - yesterdayMinutes : nil
+        let change: Double? = yesterdayOutput.totalMinutes > 0
+            ? todayOutput.totalMinutes - yesterdayOutput.totalMinutes
+            : nil
 
         return HealthMetric(
             id: "sleep",
             name: "Sleep",
-            value: totalMinutes,
+            value: todayOutput.totalMinutes,
             unit: "min",
             change: change,
             date: today,
@@ -180,43 +193,21 @@ final class DashboardViewModel {
 
     private func buildRecentScores(from samples: [HRVSample]) -> [ConditionScore] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: samples) { calendar.startOfDay(for: $0.date) }
-
-        // Pre-compute daily averages once
-        let dailyAverages: [(date: Date, value: Double)] = grouped.map { date, daySamples in
-            let avg = daySamples.map(\.value).reduce(0, +) / Double(daySamples.count)
-            return (date: date, value: avg)
-        }.sorted { $0.date > $1.date }
 
         return (0..<7).compactMap { dayOffset in
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { return nil }
-            let day = calendar.startOfDay(for: date)
-            guard grouped[day] != nil else { return nil }
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()),
+                  let nextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)) else {
+                return nil
+            }
 
-            // Use pre-computed averages up to this day
-            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { return nil }
-            let relevantAverages = dailyAverages.filter { $0.date < nextDay }
-            guard relevantAverages.count >= scoreUseCase.requiredDays else { return nil }
-
-            guard let todayAvg = relevantAverages.first(where: { calendar.isDate($0.date, inSameDayAs: day) }),
-                  todayAvg.value > 0 else { return nil }
-
-            let validAverages = relevantAverages.filter { $0.value > 0 }
-            let lnValues = validAverages.map { log($0.value) }
-            let baseline = lnValues.reduce(0, +) / Double(lnValues.count)
-            let todayLn = log(todayAvg.value)
-
-            let variance = lnValues.map { ($0 - baseline) * ($0 - baseline) }
-                .reduce(0, +) / Double(lnValues.count)
-            guard !variance.isNaN && !variance.isInfinite else { return nil }
-
-            let stdDev = sqrt(variance)
-            let normalRange = max(stdDev, 0.05)
-            let zScore = (todayLn - baseline) / normalRange
-            let rawScore = 50.0 + (zScore * 25.0)
-            let clampedScore = Int(max(0, min(100, rawScore)))
-
-            return ConditionScore(score: clampedScore, date: day)
+            let relevantSamples = samples.filter { $0.date < nextDay }
+            let input = CalculateConditionScoreUseCase.Input(
+                hrvSamples: relevantSamples,
+                todayRHR: nil,
+                yesterdayRHR: nil
+            )
+            guard let score = scoreUseCase.execute(input: input).score else { return nil }
+            return ConditionScore(score: score.score, date: calendar.startOfDay(for: date))
         }
     }
 }

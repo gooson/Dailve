@@ -1,9 +1,13 @@
 import HealthKit
 
-struct SleepQueryService: Sendable {
+protocol SleepQuerying: Sendable {
+    func fetchSleepStages(for date: Date) async throws -> [SleepStage]
+}
+
+struct SleepQueryService: SleepQuerying, Sendable {
     private let manager: HealthKitManager
 
-    init(manager: HealthKitManager = .shared) {
+    init(manager: HealthKitManager) {
         self.manager = manager
     }
 

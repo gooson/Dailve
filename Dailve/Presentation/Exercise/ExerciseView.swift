@@ -96,6 +96,11 @@ private struct AddExerciseSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let error = viewModel.validationError {
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
                 Picker("Type", selection: $viewModel.newExerciseType) {
                     ForEach(exerciseTypes, id: \.self) { type in
                         Text(type).tag(type)

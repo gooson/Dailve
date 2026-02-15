@@ -187,6 +187,11 @@ private struct BodyCompositionFormSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let error = viewModel.validationError {
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
                 TextField("Weight (kg)", text: $viewModel.newWeight)
                     .keyboardType(.decimalPad)
                 TextField("Body Fat (%)", text: $viewModel.newBodyFat)

@@ -1,9 +1,13 @@
 import HealthKit
 
-struct StepsQueryService: Sendable {
+protocol StepsQuerying: Sendable {
+    func fetchSteps(for date: Date) async throws -> Double?
+}
+
+struct StepsQueryService: StepsQuerying, Sendable {
     private let manager: HealthKitManager
 
-    init(manager: HealthKitManager = .shared) {
+    init(manager: HealthKitManager) {
         self.manager = manager
     }
 

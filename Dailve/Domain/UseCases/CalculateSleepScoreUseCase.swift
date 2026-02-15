@@ -35,7 +35,7 @@ struct CalculateSleepScoreUseCase: Sendable {
         let durationScore: Double
         if hours >= 7 && hours <= 9 {
             durationScore = 40
-        } else if hours >= 6 || hours <= 10 {
+        } else if hours >= 6 && hours <= 10 {
             durationScore = 30
         } else {
             durationScore = max(0, 40 - abs(hours - 8) * 10)

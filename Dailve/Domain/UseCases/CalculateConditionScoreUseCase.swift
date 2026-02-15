@@ -76,7 +76,8 @@ struct CalculateConditionScoreUseCase: Sendable {
             calendar.startOfDay(for: sample.date)
         }
 
-        return grouped.map { date, samples in
+        return grouped.compactMap { date, samples in
+            guard !samples.isEmpty else { return nil }
             let avg = samples.map(\.value).reduce(0, +) / Double(samples.count)
             return (date: date, value: avg)
         }

@@ -13,9 +13,13 @@ final class BodyCompositionViewModel {
     var newMuscleMass: String = ""
     var newMemo: String = ""
     var validationError: String?
+    var isSaving = false
 
     func createValidatedRecord() -> BodyCompositionRecord? {
+        guard !isSaving else { return nil }
         guard let validated = validateInputs() else { return nil }
+        isSaving = true
+        defer { isSaving = false }
         return BodyCompositionRecord(
             date: Date(),
             weight: validated.weight,
