@@ -3,6 +3,7 @@ import HealthKit
 protocol StepsQuerying: Sendable {
     func fetchSteps(for date: Date) async throws -> Double?
     func fetchLatestSteps(withinDays days: Int) async throws -> (value: Double, date: Date)?
+    func fetchStepsCollection(start: Date, end: Date, interval: DateComponents) async throws -> [(date: Date, sum: Double)]
 }
 
 struct StepsQueryService: StepsQuerying, Sendable {
@@ -46,5 +47,31 @@ struct StepsQueryService: StepsQuerying, Sendable {
             }
         }
         return nil
+    }
+
+    func fetchStepsCollection(
+        start: Date,
+        end: Date,
+        interval: DateComponents
+    ) async throws -> [(date: Date, sum: Double)] {
+        try await manager.ensureNotDenied(for: HKQuantityType(.stepCount))
+
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        let descriptor = HKStatisticsCollectionQueryDescriptor(
+            predicate: .quantitySample(type: HKQuantityType(.stepCount), predicate: predicate),
+            options: .cumulativeSum,
+            anchorDate: start,
+            intervalComponents: interval
+        )
+
+        let collection = try await manager.executeStatisticsCollection(descriptor)
+
+        var results: [(date: Date, sum: Double)] = []
+        collection.enumerateStatistics(from: start, to: end) { statistics, _ in
+            if let sum = statistics.sumQuantity()?.doubleValue(for: .count()), sum > 0 {
+                results.append((date: statistics.startDate, sum: sum))
+            }
+        }
+        return results
     }
 }

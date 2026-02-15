@@ -57,8 +57,15 @@ final class ActivityViewModel {
 
     private func safeExerciseFetch() async -> ExerciseResult {
         do {
-            let workouts = try await workoutService.fetchWorkouts(days: 7)
             let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            guard let weekStart = calendar.date(byAdding: .day, value: -6, to: today) else {
+                return ExerciseResult(weeklyData: [], todayMetric: nil)
+            }
+
+            let workouts = try await workoutService.fetchWorkouts(
+                start: weekStart, end: Date()
+            )
 
             // Group by day
             var dailyMinutes: [Date: Double] = [:]
@@ -76,9 +83,8 @@ final class ActivityViewModel {
             }
 
             // Today metric
-            let today = calendar.startOfDay(for: Date())
             let todayMinutes = dailyMinutes[today] ?? 0
-            let todayMetric: HealthMetric? = HealthMetric(
+            let todayMetric = HealthMetric(
                 id: "activity-exercise",
                 name: "Exercise",
                 value: todayMinutes,
@@ -95,7 +101,7 @@ final class ActivityViewModel {
         }
     }
 
-    // MARK: - Steps Fetch
+    // MARK: - Steps Fetch (uses StatisticsCollection for efficiency)
 
     private struct StepsResult {
         let weeklyData: [ChartDataPoint]
@@ -105,27 +111,32 @@ final class ActivityViewModel {
     private func safeStepsFetch() async -> StepsResult {
         do {
             let calendar = Calendar.current
-            var weeklyData: [ChartDataPoint] = []
-
-            try await withThrowingTaskGroup(of: (Date, Double?).self) { group in
-                for dayOffset in 0..<7 {
-                    guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
-                    group.addTask { [stepsService] in
-                        let steps = try await stepsService.fetchSteps(for: date)
-                        return (calendar.startOfDay(for: date), steps)
-                    }
-                }
-
-                for try await (date, steps) in group {
-                    weeklyData.append(ChartDataPoint(date: date, value: steps ?? 0))
-                }
+            let today = calendar.startOfDay(for: Date())
+            guard let weekStart = calendar.date(byAdding: .day, value: -6, to: today) else {
+                return StepsResult(weeklyData: [], todayMetric: nil)
             }
 
-            weeklyData.sort(by: { $0.date < $1.date })
+            let collection = try await stepsService.fetchStepsCollection(
+                start: weekStart, end: Date(), interval: DateComponents(day: 1)
+            )
+
+            // Build lookup from collection results
+            var dailySteps: [Date: Double] = [:]
+            for entry in collection {
+                let dayStart = calendar.startOfDay(for: entry.date)
+                dailySteps[dayStart] = entry.sum
+            }
+
+            // Build 7-day chart data (fill gaps with 0)
+            var weeklyData: [ChartDataPoint] = []
+            for dayOffset in (0..<7).reversed() {
+                guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else { continue }
+                let dayStart = calendar.startOfDay(for: date)
+                weeklyData.append(ChartDataPoint(date: dayStart, value: dailySteps[dayStart] ?? 0))
+            }
 
             // Today metric
-            let today = calendar.startOfDay(for: Date())
-            let todaySteps = weeklyData.first(where: { calendar.isDate($0.date, inSameDayAs: today) })?.value ?? 0
+            let todaySteps = dailySteps[today] ?? 0
             let todayMetric = HealthMetric(
                 id: "activity-steps",
                 name: "Steps",

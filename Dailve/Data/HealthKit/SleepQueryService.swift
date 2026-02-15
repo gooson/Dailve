@@ -3,6 +3,7 @@ import HealthKit
 protocol SleepQuerying: Sendable {
     func fetchSleepStages(for date: Date) async throws -> [SleepStage]
     func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)?
+    func fetchDailySleepDurations(start: Date, end: Date) async throws -> [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])]
 }
 
 struct SleepQueryService: SleepQuerying, Sendable {
@@ -109,6 +110,42 @@ struct SleepQueryService: SleepQuerying, Sendable {
             }
         }
         return nil
+    }
+
+    func fetchDailySleepDurations(
+        start: Date,
+        end: Date
+    ) async throws -> [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])] {
+        let calendar = Calendar.current
+        let dayCount = calendar.dateComponents([.day], from: start, to: end).day ?? 7
+
+        return try await withThrowingTaskGroup(
+            of: (Date, Double, [SleepStage.Stage: Double])?.self
+        ) { group in
+            for dayOffset in 0..<dayCount {
+                guard let date = calendar.date(byAdding: .day, value: dayOffset, to: start) else { continue }
+                group.addTask { [self] in
+                    let stages = try await self.fetchSleepStages(for: date)
+                    let sleepStages = stages.filter { $0.stage != .awake }
+                    guard !sleepStages.isEmpty else { return nil }
+
+                    let totalMinutes = sleepStages.reduce(0.0) { $0 + $1.duration } / 60.0
+                    var breakdown: [SleepStage.Stage: Double] = [:]
+                    for stage in sleepStages {
+                        breakdown[stage.stage, default: 0] += stage.duration / 60.0
+                    }
+                    return (date, totalMinutes, breakdown)
+                }
+            }
+
+            var results: [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])] = []
+            for try await result in group {
+                if let result {
+                    results.append((date: result.0, totalMinutes: result.1, stageBreakdown: result.2))
+                }
+            }
+            return results.sorted { $0.date < $1.date }
+        }
     }
 
     private func isWatchSource(_ sample: HKSample) -> Bool {
