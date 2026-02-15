@@ -34,7 +34,7 @@ struct HRVQueryService: HRVQuerying, Sendable {
         let samples = try await manager.execute(descriptor)
 
         return samples.compactMap { sample in
-            let value = sample.quantity.doubleValue(for: .secondUnit(with: .milli))
+            let value = sample.quantity.doubleValue(for: HKUnit.secondUnit(with: .milli))
             guard value >= 1 else { return nil } // Filter out invalid SDNN < 1ms
             return HRVSample(value: value, date: sample.startDate)
         }
@@ -61,6 +61,6 @@ struct HRVQueryService: HRVQuerying, Sendable {
         )
 
         let samples = try await manager.execute(descriptor)
-        return samples.first?.quantity.doubleValue(for: .count().unitDivided(by: .minute()))
+        return samples.first?.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
     }
 }

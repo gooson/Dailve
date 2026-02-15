@@ -1,0 +1,98 @@
+import Foundation
+import Testing
+@testable import Dailve
+
+@Suite("BodyCompositionViewModel")
+@MainActor
+struct BodyCompositionViewModelTests {
+    @Test("createValidatedRecord returns record with valid inputs")
+    func validRecord() {
+        let vm = BodyCompositionViewModel()
+        vm.newWeight = "70.5"
+        vm.newBodyFat = "15.0"
+        vm.newMuscleMass = "30.0"
+        vm.newMemo = "Test"
+
+        let record = vm.createValidatedRecord()
+        #expect(record != nil)
+        #expect(record?.weight == 70.5)
+        #expect(record?.bodyFatPercentage == 15.0)
+        #expect(record?.muscleMass == 30.0)
+        #expect(vm.validationError == nil)
+    }
+
+    @Test("createValidatedRecord returns nil for invalid weight")
+    func invalidWeight() {
+        let vm = BodyCompositionViewModel()
+        vm.newWeight = "600"
+
+        let record = vm.createValidatedRecord()
+        #expect(record == nil)
+        #expect(vm.validationError != nil)
+    }
+
+    @Test("createValidatedRecord returns nil for invalid body fat")
+    func invalidBodyFat() {
+        let vm = BodyCompositionViewModel()
+        vm.newBodyFat = "101"
+
+        let record = vm.createValidatedRecord()
+        #expect(record == nil)
+        #expect(vm.validationError != nil)
+    }
+
+    @Test("createValidatedRecord returns nil for invalid muscle mass")
+    func invalidMuscleMass() {
+        let vm = BodyCompositionViewModel()
+        vm.newMuscleMass = "350"
+
+        let record = vm.createValidatedRecord()
+        #expect(record == nil)
+        #expect(vm.validationError != nil)
+    }
+
+    @Test("createValidatedRecord allows empty optional fields")
+    func emptyOptionalFields() {
+        let vm = BodyCompositionViewModel()
+        // All fields empty is valid (all optional)
+        let record = vm.createValidatedRecord()
+        #expect(record != nil)
+        #expect(record?.weight == nil)
+    }
+
+    @Test("Memo is truncated to 500 characters")
+    func memoTruncation() {
+        let vm = BodyCompositionViewModel()
+        vm.newMemo = String(repeating: "a", count: 600)
+
+        let record = vm.createValidatedRecord()
+        #expect(record != nil)
+        #expect(record?.memo.count == 500)
+    }
+
+    @Test("isSaving prevents duplicate creation")
+    func isSavingGuard() {
+        let vm = BodyCompositionViewModel()
+        vm.isSaving = true
+
+        let record = vm.createValidatedRecord()
+        #expect(record == nil)
+    }
+
+    @Test("resetForm clears all fields")
+    func resetForm() {
+        let vm = BodyCompositionViewModel()
+        vm.newWeight = "70"
+        vm.newBodyFat = "15"
+        vm.newMuscleMass = "30"
+        vm.newMemo = "test"
+        vm.validationError = "error"
+
+        vm.resetForm()
+        #expect(vm.newWeight == "")
+        #expect(vm.newBodyFat == "")
+        #expect(vm.newMuscleMass == "")
+        #expect(vm.newMemo == "")
+        #expect(vm.validationError == nil)
+    }
+}

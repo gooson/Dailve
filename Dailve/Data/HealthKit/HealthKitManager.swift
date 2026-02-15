@@ -52,7 +52,7 @@ actor HealthKitManager {
         }
     }
 
-    func execute<T>(_ query: T) async throws -> [T.Sample] where T: HKSampleQueryDescriptor {
+    func execute<S: HKSample>(_ query: HKSampleQueryDescriptor<S>) async throws -> [S] {
         do {
             return try await query.result(for: store)
         } catch {
@@ -61,7 +61,7 @@ actor HealthKitManager {
         }
     }
 
-    func executeStatistics(_ query: HKStatisticsQueryDescriptor) async throws -> HKStatistics? {
+    func executeStatistics(_ query: sending HKStatisticsQueryDescriptor) async throws -> HKStatistics? {
         do {
             return try await query.result(for: store)
         } catch {

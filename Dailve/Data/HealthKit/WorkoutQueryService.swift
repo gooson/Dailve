@@ -37,8 +37,8 @@ struct WorkoutQueryService: WorkoutQuerying, Sendable {
                 id: workout.uuid.uuidString,
                 type: workoutTypeName(workout.workoutActivityType),
                 duration: workout.duration,
-                calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()),
-                distance: workout.totalDistance?.doubleValue(for: .meter()),
+                calories: workout.totalEnergyBurned?.doubleValue(for: HKUnit.kilocalorie()),
+                distance: workout.totalDistance?.doubleValue(for: HKUnit.meter()),
                 date: workout.startDate
             )
         }
