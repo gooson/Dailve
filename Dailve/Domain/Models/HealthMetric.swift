@@ -1,6 +1,6 @@
 import Foundation
 
-struct HealthMetric: Identifiable, Sendable {
+struct HealthMetric: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let value: Double

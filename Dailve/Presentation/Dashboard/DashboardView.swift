@@ -47,6 +47,12 @@ struct DashboardView: View {
             )
             .ignoresSafeArea()
         }
+        .navigationDestination(for: HealthMetric.self) { metric in
+            MetricDetailView(metric: metric)
+        }
+        .navigationDestination(for: AllDataDestination.self) { destination in
+            AllDataView(category: destination.category)
+        }
         .refreshable {
             await viewModel.loadData()
         }

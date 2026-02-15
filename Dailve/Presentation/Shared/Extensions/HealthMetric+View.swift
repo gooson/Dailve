@@ -47,4 +47,26 @@ extension HealthMetric.Category {
         case .weight:   "scalemass.fill"
         }
     }
+
+    var displayName: String {
+        switch self {
+        case .hrv:      "Heart Rate Variability"
+        case .rhr:      "Resting Heart Rate"
+        case .sleep:    "Sleep"
+        case .exercise: "Exercise"
+        case .steps:    "Steps"
+        case .weight:   "Weight"
+        }
+    }
+
+    var unitLabel: String {
+        switch self {
+        case .hrv:      "ms"
+        case .rhr:      "bpm"
+        case .sleep:    ""
+        case .exercise: "min"
+        case .steps:    "steps"
+        case .weight:   "kg"
+        }
+    }
 }
