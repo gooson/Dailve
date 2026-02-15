@@ -1,4 +1,5 @@
-import SwiftUI
+import Foundation
+import Observation
 import OSLog
 
 @Observable
@@ -39,36 +40,71 @@ final class DashboardViewModel {
 
         do {
             try await healthKitManager.requestAuthorization()
-            async let hrvTask = fetchHRVData()
-            async let sleepTask = fetchSleepData()
-            async let exerciseTask = fetchExerciseData()
-            async let stepsTask = fetchStepsData()
-
-            let (hrvMetrics, sleepMetric, exerciseMetric, stepsMetric) = await (
-                try hrvTask, try sleepTask, try exerciseTask, try stepsTask
-            )
-
-            var allMetrics: [HealthMetric] = []
-            allMetrics.append(contentsOf: hrvMetrics)
-            if let sleepMetric { allMetrics.append(sleepMetric) }
-            if let exerciseMetric { allMetrics.append(exerciseMetric) }
-            if let stepsMetric { allMetrics.append(stepsMetric) }
-
-            // Sort once at assignment time instead of on every access
-            sortedMetrics = allMetrics.sorted { $0.changeSignificance > $1.changeSignificance }
         } catch {
-            AppLogger.ui.error("Dashboard load failed: \(error.localizedDescription)")
+            AppLogger.ui.error("HealthKit authorization failed: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
+            isLoading = false
+            return
         }
 
+        // Each fetch is independent — one failure should not block others
+        async let hrvTask = safeHRVFetch()
+        async let sleepTask = safeSleepFetch()
+        async let exerciseTask = safeExerciseFetch()
+        async let stepsTask = safeStepsFetch()
+
+        let (hrvMetrics, sleepMetric, exerciseMetric, stepsMetric) = await (
+            hrvTask, sleepTask, exerciseTask, stepsTask
+        )
+
+        var allMetrics: [HealthMetric] = []
+        allMetrics.append(contentsOf: hrvMetrics)
+        if let sleepMetric { allMetrics.append(sleepMetric) }
+        if let exerciseMetric { allMetrics.append(exerciseMetric) }
+        if let stepsMetric { allMetrics.append(stepsMetric) }
+
+        sortedMetrics = allMetrics.sorted { $0.changeSignificance > $1.changeSignificance }
         isLoading = false
+    }
+
+    private func safeHRVFetch() async -> [HealthMetric] {
+        do { return try await fetchHRVData() }
+        catch {
+            AppLogger.ui.error("HRV fetch failed: \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    private func safeSleepFetch() async -> HealthMetric? {
+        do { return try await fetchSleepData() }
+        catch {
+            AppLogger.ui.error("Sleep fetch failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func safeExerciseFetch() async -> HealthMetric? {
+        do { return try await fetchExerciseData() }
+        catch {
+            AppLogger.ui.error("Exercise fetch failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func safeStepsFetch() async -> HealthMetric? {
+        do { return try await fetchStepsData() }
+        catch {
+            AppLogger.ui.error("Steps fetch failed: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Private
 
     private func fetchHRVData() async throws -> [HealthMetric] {
+        let calendar = Calendar.current
         let today = Date()
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today) ?? today
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
 
         async let samplesTask = hrvService.fetchHRVSamples(days: 7)
         async let todayRHRTask = hrvService.fetchRestingHeartRate(for: today)
@@ -76,22 +112,41 @@ final class DashboardViewModel {
 
         let (samples, todayRHR, yesterdayRHR) = try await (samplesTask, todayRHRTask, yesterdayRHRTask)
 
+        // Fallback RHR: if today is nil, use latest within 7 days for condition score
+        let effectiveRHR: Double?
+        let rhrDate: Date
+        let rhrIsHistorical: Bool
+        if let todayRHR {
+            effectiveRHR = todayRHR
+            rhrDate = today
+            rhrIsHistorical = false
+        } else if let latest = try await hrvService.fetchLatestRestingHeartRate(withinDays: 7) {
+            effectiveRHR = latest.value
+            rhrDate = latest.date
+            rhrIsHistorical = true
+        } else {
+            effectiveRHR = nil
+            rhrDate = today
+            rhrIsHistorical = false
+        }
+
         let input = CalculateConditionScoreUseCase.Input(
             hrvSamples: samples,
-            todayRHR: todayRHR,
+            todayRHR: effectiveRHR,
             yesterdayRHR: yesterdayRHR
         )
         let output = scoreUseCase.execute(input: input)
         conditionScore = output.score
         baselineStatus = output.baselineStatus
 
-        // Build 7-day score history — compute daily averages once, reuse
+        // Build 7-day score history
         recentScores = buildRecentScores(from: samples)
 
         var metrics: [HealthMetric] = []
 
-        // Latest HRV
+        // Latest HRV (samples are already 7 days, so first is the most recent)
         if let latest = samples.first {
+            let isToday = calendar.isDateInToday(latest.date)
             let previousAvg = samples.dropFirst().prefix(7).map(\.value)
             let avgPrev = previousAvg.isEmpty ? nil : previousAvg.reduce(0, +) / Double(previousAvg.count)
             metrics.append(HealthMetric(
@@ -101,20 +156,22 @@ final class DashboardViewModel {
                 unit: "ms",
                 change: avgPrev.map { latest.value - $0 },
                 date: latest.date,
-                category: .hrv
+                category: .hrv,
+                isHistorical: !isToday
             ))
         }
 
-        // RHR
-        if let rhr = todayRHR {
+        // RHR (with fallback)
+        if let rhr = effectiveRHR {
             metrics.append(HealthMetric(
                 id: "rhr",
                 name: "RHR",
                 value: rhr,
                 unit: "bpm",
                 change: yesterdayRHR.map { rhr - $0 },
-                date: today,
-                category: .rhr
+                date: rhrDate,
+                category: .rhr,
+                isHistorical: rhrIsHistorical
             ))
         }
 
@@ -130,42 +187,79 @@ final class DashboardViewModel {
         async let todayTask = sleepService.fetchSleepStages(for: today)
         async let yesterdayTask = sleepService.fetchSleepStages(for: yesterday)
 
-        let (stages, yesterdayStages) = try await (todayTask, yesterdayTask)
-        guard !stages.isEmpty else { return nil }
+        let (todayStages, yesterdayStages) = try await (todayTask, yesterdayTask)
 
-        let todayOutput = sleepScoreUseCase.execute(input: .init(stages: stages))
+        // Fallback: if today has no sleep data, find most recent within 7 days
+        let stages: [SleepStage]
+        let sleepDate: Date
+        let isHistorical: Bool
+        if !todayStages.isEmpty {
+            stages = todayStages
+            sleepDate = today
+            isHistorical = false
+        } else if let latest = try await sleepService.fetchLatestSleepStages(withinDays: 7) {
+            stages = latest.stages
+            sleepDate = latest.date
+            isHistorical = true
+        } else {
+            return nil
+        }
+
+        let output = sleepScoreUseCase.execute(input: .init(stages: stages))
         let yesterdayOutput = sleepScoreUseCase.execute(input: .init(stages: yesterdayStages))
 
         let change: Double? = yesterdayOutput.totalMinutes > 0
-            ? todayOutput.totalMinutes - yesterdayOutput.totalMinutes
+            ? output.totalMinutes - yesterdayOutput.totalMinutes
             : nil
 
         return HealthMetric(
             id: "sleep",
             name: "Sleep",
-            value: todayOutput.totalMinutes,
+            value: output.totalMinutes,
             unit: "min",
             change: change,
-            date: today,
-            category: .sleep
+            date: sleepDate,
+            category: .sleep,
+            isHistorical: isHistorical
         )
     }
 
     private func fetchExerciseData() async throws -> HealthMetric? {
-        let workouts = try await workoutService.fetchWorkouts(days: 1)
+        let calendar = Calendar.current
+        let workouts = try await workoutService.fetchWorkouts(days: 7)
         guard !workouts.isEmpty else { return nil }
 
-        let totalMinutes = workouts.map(\.duration).reduce(0, +) / 60.0
+        // Group by today vs. historical
+        let todayWorkouts = workouts.filter { calendar.isDateInToday($0.date) }
+        if !todayWorkouts.isEmpty {
+            let totalMinutes = todayWorkouts.map(\.duration).reduce(0, +) / 60.0
+            return HealthMetric(
+                id: "exercise",
+                name: "Exercise",
+                value: totalMinutes,
+                unit: "min",
+                change: nil,
+                date: Date(),
+                category: .exercise
+            )
+        }
 
-        return HealthMetric(
-            id: "exercise",
-            name: "Exercise",
-            value: totalMinutes,
-            unit: "min",
-            change: nil,
-            date: Date(),
-            category: .exercise
-        )
+        // Fallback: show most recent workout
+        if let latest = workouts.first {
+            let totalMinutes = latest.duration / 60.0
+            return HealthMetric(
+                id: "exercise",
+                name: "Exercise",
+                value: totalMinutes,
+                unit: "min",
+                change: nil,
+                date: latest.date,
+                category: .exercise,
+                isHistorical: true
+            )
+        }
+
+        return nil
     }
 
     private func fetchStepsData() async throws -> HealthMetric? {
@@ -175,20 +269,35 @@ final class DashboardViewModel {
         async let todayTask = stepsService.fetchSteps(for: today)
         async let yesterdayTask = stepsService.fetchSteps(for: yesterday)
 
-        let (steps, yesterdaySteps) = try await (todayTask, yesterdayTask)
-        guard let steps else { return nil }
+        let (todaySteps, yesterdaySteps) = try await (todayTask, yesterdayTask)
 
-        let change: Double? = yesterdaySteps.map { steps - $0 }
+        if let steps = todaySteps {
+            return HealthMetric(
+                id: "steps",
+                name: "Steps",
+                value: steps,
+                unit: "",
+                change: yesterdaySteps.map { steps - $0 },
+                date: today,
+                category: .steps
+            )
+        }
 
-        return HealthMetric(
-            id: "steps",
-            name: "Steps",
-            value: steps,
-            unit: "",
-            change: change,
-            date: today,
-            category: .steps
-        )
+        // Fallback: find most recent steps within 7 days
+        if let latest = try await stepsService.fetchLatestSteps(withinDays: 7) {
+            return HealthMetric(
+                id: "steps",
+                name: "Steps",
+                value: latest.value,
+                unit: "",
+                change: nil,
+                date: latest.date,
+                category: .steps,
+                isHistorical: true
+            )
+        }
+
+        return nil
     }
 
     private func buildRecentScores(from samples: [HRVSample]) -> [ConditionScore] {

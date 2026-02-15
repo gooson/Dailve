@@ -42,4 +42,30 @@ struct HealthMetricTests {
         let down = HealthMetric(id: "2", name: "Test", value: 50, unit: "ms", change: -2.1, date: Date(), category: .hrv)
         #expect(down.formattedChange?.contains("\u{25BC}") == true)
     }
+
+    @Test("isHistorical defaults to false")
+    func isHistoricalDefault() {
+        let metric = HealthMetric(id: "1", name: "Test", value: 50, unit: "ms", change: nil, date: Date(), category: .hrv)
+        #expect(metric.isHistorical == false)
+    }
+}
+
+@Suite("Date.relativeLabel")
+struct DateRelativeLabelTests {
+    @Test("Today returns nil")
+    func todayReturnsNil() {
+        #expect(Date().relativeLabel == nil)
+    }
+
+    @Test("Yesterday returns 'Yesterday'")
+    func yesterdayLabel() {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
+        #expect(yesterday.relativeLabel == "Yesterday")
+    }
+
+    @Test("3 days ago returns '3 days ago'")
+    func threeDaysAgo() {
+        let date = Calendar.current.date(byAdding: .day, value: -3, to: Date())!
+        #expect(date.relativeLabel == "3 days ago")
+    }
 }

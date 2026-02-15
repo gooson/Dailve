@@ -1,6 +1,21 @@
 import Foundation
 import Observation
 
+struct BodyCompositionListItem: Identifiable {
+    let id: String
+    let date: Date
+    let weight: Double?
+    let bodyFatPercentage: Double?
+    let muscleMass: Double?
+    let memo: String
+    let source: Source
+
+    enum Source {
+        case manual
+        case healthKit
+    }
+}
+
 @Observable
 @MainActor
 final class BodyCompositionViewModel {
@@ -13,6 +28,10 @@ final class BodyCompositionViewModel {
     var isShowingEditSheet = false
     var editingRecord: BodyCompositionRecord?
 
+    // HealthKit data
+    var healthKitItems: [BodyCompositionListItem] = []
+    var isLoadingHealthKit = false
+
     // Form fields
     var newWeight: String = ""
     var newBodyFat: String = ""
@@ -21,6 +40,85 @@ final class BodyCompositionViewModel {
     var selectedDate: Date = Date() { didSet { validationError = nil } }
     var validationError: String?
     var isSaving = false
+
+    private let bodyCompositionService: BodyCompositionQuerying
+
+    init(bodyCompositionService: BodyCompositionQuerying? = nil) {
+        self.bodyCompositionService = bodyCompositionService ?? BodyCompositionQueryService(manager: .shared)
+    }
+
+    func loadHealthKitData() async {
+        isLoadingHealthKit = true
+        do {
+            async let weightTask = bodyCompositionService.fetchWeight(days: 90)
+            async let bodyFatTask = bodyCompositionService.fetchBodyFat(days: 90)
+            async let leanBodyMassTask = bodyCompositionService.fetchLeanBodyMass(days: 90)
+
+            let (weights, bodyFats, leanBodyMasses) = try await (weightTask, bodyFatTask, leanBodyMassTask)
+
+            // Merge by date (group samples from same day)
+            var dateMap: [String: (weight: Double?, bodyFat: Double?, muscleMass: Double?, date: Date)] = [:]
+            let calendar = Calendar.current
+
+            for sample in weights {
+                let key = dayKey(sample.date, calendar: calendar)
+                var entry = dateMap[key] ?? (weight: nil, bodyFat: nil, muscleMass: nil, date: sample.date)
+                entry.weight = sample.value
+                if sample.date > entry.date { entry.date = sample.date }
+                dateMap[key] = entry
+            }
+
+            for sample in bodyFats {
+                let key = dayKey(sample.date, calendar: calendar)
+                var entry = dateMap[key] ?? (weight: nil, bodyFat: nil, muscleMass: nil, date: sample.date)
+                entry.bodyFat = sample.value
+                if sample.date > entry.date { entry.date = sample.date }
+                dateMap[key] = entry
+            }
+
+            for sample in leanBodyMasses {
+                let key = dayKey(sample.date, calendar: calendar)
+                var entry = dateMap[key] ?? (weight: nil, bodyFat: nil, muscleMass: nil, date: sample.date)
+                entry.muscleMass = sample.value
+                if sample.date > entry.date { entry.date = sample.date }
+                dateMap[key] = entry
+            }
+
+            healthKitItems = dateMap.map { key, entry in
+                BodyCompositionListItem(
+                    id: "hk-\(key)",
+                    date: entry.date,
+                    weight: entry.weight,
+                    bodyFatPercentage: entry.bodyFat,
+                    muscleMass: entry.muscleMass,
+                    memo: "",
+                    source: .healthKit
+                )
+            }.sorted { $0.date > $1.date }
+        } catch {
+            AppLogger.ui.error("Body composition HK load failed: \(error.localizedDescription)")
+        }
+        isLoadingHealthKit = false
+    }
+
+    func allItems(manualRecords: [BodyCompositionRecord]) -> [BodyCompositionListItem] {
+        let manualItems = manualRecords.map { record in
+            BodyCompositionListItem(
+                id: record.id.uuidString,
+                date: record.date,
+                weight: record.weight,
+                bodyFatPercentage: record.bodyFatPercentage,
+                muscleMass: record.muscleMass,
+                memo: record.memo,
+                source: .manual
+            )
+        }
+        return (manualItems + healthKitItems).sorted { $0.date > $1.date }
+    }
+
+    func latestValues(manualRecords: [BodyCompositionRecord]) -> BodyCompositionListItem? {
+        allItems(manualRecords: manualRecords).first
+    }
 
     func createValidatedRecord() -> BodyCompositionRecord? {
         guard !isSaving else { return nil }
@@ -106,5 +204,12 @@ final class BodyCompositionViewModel {
         selectedDate = Date()
         validationError = nil
         editingRecord = nil
+    }
+
+    // MARK: - Private
+
+    private func dayKey(_ date: Date, calendar: Calendar) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
     }
 }

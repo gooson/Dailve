@@ -1,4 +1,5 @@
-import SwiftUI
+import Foundation
+import Observation
 
 @Observable
 @MainActor
@@ -7,6 +8,7 @@ final class SleepViewModel {
     var weeklyData: [DailySleep] = []
     var isLoading = false
     var errorMessage: String?
+    var latestSleepDate: Date?
 
     private let sleepService: SleepQuerying
     private let sleepScoreUseCase = CalculateSleepScoreUseCase()
@@ -22,6 +24,11 @@ final class SleepViewModel {
     var totalSleepMinutes: Double { todayOutput.totalMinutes }
     var sleepEfficiency: Double { todayOutput.efficiency }
     var sleepScore: Int { todayOutput.score }
+
+    var isShowingHistoricalData: Bool {
+        guard let latestSleepDate else { return false }
+        return !Calendar.current.isDateInToday(latestSleepDate)
+    }
 
     var stageBreakdown: [(stage: SleepStage.Stage, minutes: Double)] {
         let stages: [SleepStage.Stage] = [.deep, .core, .rem, .awake]
@@ -40,8 +47,20 @@ final class SleepViewModel {
             let calendar = Calendar.current
             let today = Date()
 
-            // Parallel: fetch today + 7 days concurrently
-            todayStages = try await sleepService.fetchSleepStages(for: today)
+            // Fetch today's sleep data
+            let fetchedStages = try await sleepService.fetchSleepStages(for: today)
+
+            // Fallback: if today has no sleep data, find most recent
+            if !fetchedStages.isEmpty {
+                todayStages = fetchedStages
+                latestSleepDate = today
+            } else if let latest = try await sleepService.fetchLatestSleepStages(withinDays: 7) {
+                todayStages = latest.stages
+                latestSleepDate = latest.date
+            } else {
+                todayStages = []
+                latestSleepDate = nil
+            }
 
             weeklyData = try await withThrowingTaskGroup(of: DailySleep?.self) { group in
                 for dayOffset in 0..<7 {

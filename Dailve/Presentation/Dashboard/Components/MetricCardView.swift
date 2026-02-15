@@ -5,7 +5,7 @@ struct MetricCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            // Header: icon + label
+            // Header: icon + label + relative date
             HStack(spacing: DS.Spacing.xs) {
                 Image(systemName: metric.category.iconName)
                     .font(.caption)
@@ -13,6 +13,13 @@ struct MetricCardView: View {
                 Text(metric.name)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if metric.isHistorical, let label = metric.date.relativeLabel {
+                    Spacer()
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             // Value + change badge

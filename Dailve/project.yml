@@ -15,6 +15,27 @@ settings:
     DEVELOPMENT_TEAM: "4GWU9QB2JZ"
     CODE_SIGN_IDENTITY: "iPhone Developer"
 
+schemes:
+  Dailve:
+    build:
+      targets:
+        Dailve: all
+        DailveTests: [test]
+        DailveUITests: [test]
+    test:
+      targets:
+        - DailveTests
+        - DailveUITests
+
+  DailveTests:
+    build:
+      targets:
+        Dailve: all
+        DailveTests: [test]
+    test:
+      targets:
+        - DailveTests
+
 targets:
   Dailve:
     type: application

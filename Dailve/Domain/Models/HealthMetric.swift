@@ -8,6 +8,7 @@ struct HealthMetric: Identifiable, Sendable {
     let change: Double?
     let date: Date
     let category: Category
+    var isHistorical: Bool = false
 
     enum Category: String, Sendable, CaseIterable {
         case hrv

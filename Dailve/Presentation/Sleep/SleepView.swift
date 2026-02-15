@@ -18,6 +18,19 @@ struct SleepView: View {
             } else {
                 ScrollView {
                     VStack(spacing: DS.Spacing.xl) {
+                        if viewModel.isShowingHistoricalData, let date = viewModel.latestSleepDate {
+                            HStack(spacing: DS.Spacing.xs) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.caption)
+                                Text("Showing data from \(date, style: .date)")
+                                    .font(.caption)
+                            }
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, DS.Spacing.sm)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+                        }
+
                         sleepScoreCard
                         stageBreakdownCard
                         weeklyTrendCard
