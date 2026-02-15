@@ -112,7 +112,6 @@ enum TimePeriod: String, CaseIterable, Sendable {
 
     /// Formatted label for the given offset's date range.
     func rangeLabel(offset: Int) -> String {
-        guard offset != 0 else { return "" }
         let range = dateRange(offset: offset)
         let formatter = DateFormatter()
         switch self {

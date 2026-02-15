@@ -29,14 +29,18 @@ struct ConditionScoreDetailView: View {
 
                 // Trend chart (swipeable)
                 StandardCard {
-                    DotLineChartView(
-                        data: viewModel.chartData,
-                        baseline: 50,
-                        yAxisLabel: "Score",
-                        timePeriod: viewModel.selectedPeriod,
-                        tintColor: score.status.color
-                    )
-                    .frame(height: chartHeight)
+                    if viewModel.chartData.isEmpty && !viewModel.isLoading {
+                        chartEmptyState
+                    } else {
+                        DotLineChartView(
+                            data: viewModel.chartData,
+                            baseline: 50,
+                            yAxisLabel: "Score",
+                            timePeriod: viewModel.selectedPeriod,
+                            tintColor: score.status.color
+                        )
+                        .frame(height: chartHeight)
+                    }
                 }
                 .periodSwipe(offset: $viewModel.periodOffset, canGoForward: viewModel.canGoForward)
 
@@ -75,45 +79,63 @@ struct ConditionScoreDetailView: View {
 
     // MARK: - Period Range Label
 
-    @ViewBuilder
     private var periodRangeLabel: some View {
-        let label = viewModel.selectedPeriod.rangeLabel(offset: viewModel.periodOffset)
-        if !label.isEmpty {
-            HStack {
+        HStack {
+            Button {
+                viewModel.periodOffset -= 1
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+            }
+
+            Spacer()
+
+            Text(viewModel.selectedPeriod.rangeLabel(offset: viewModel.periodOffset))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+                .animation(.default, value: viewModel.periodOffset)
+
+            Spacer()
+
+            if viewModel.canGoForward {
                 Button {
-                    viewModel.periodOffset -= 1
+                    viewModel.periodOffset += 1
                 } label: {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "chevron.right")
                         .font(.caption2)
                         .fontWeight(.semibold)
                 }
-
-                Spacer()
-
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .contentTransition(.numericText())
-
-                Spacer()
-
-                if viewModel.canGoForward {
-                    Button {
-                        viewModel.periodOffset += 1
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                    }
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundStyle(.quaternary)
-                }
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.quaternary)
             }
-            .padding(.horizontal, DS.Spacing.sm)
-            .sensoryFeedback(.selection, trigger: viewModel.periodOffset)
         }
+        .padding(.horizontal, DS.Spacing.sm)
+        .sensoryFeedback(.selection, trigger: viewModel.periodOffset)
+    }
+
+    // MARK: - Empty State
+
+    private var chartEmptyState: some View {
+        VStack(spacing: DS.Spacing.md) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 32))
+                .foregroundStyle(.quaternary)
+
+            Text("No Data")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+
+            Text("No records for this period.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: chartHeight)
     }
 
     // MARK: - Subviews

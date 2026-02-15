@@ -1,44 +1,49 @@
 import SwiftUI
 
 /// View modifier that adds horizontal swipe gesture for navigating between time periods.
+/// Uses `.simultaneousGesture` to coexist with ScrollView's vertical scroll.
 /// Swipe left → go to previous period (offset decreases), swipe right → go to next period (offset increases).
 struct PeriodSwipeModifier: ViewModifier {
     @Binding var periodOffset: Int
     let canGoForward: Bool
 
+    @State private var isHorizontalDrag = false
     @State private var dragOffset: CGFloat = 0
-    private let swipeThreshold: CGFloat = 50
+    private let swipeThreshold: CGFloat = 60
 
     func body(content: Content) -> some View {
         content
             .offset(x: dragOffset)
-            .gesture(
-                DragGesture(minimumDistance: 30, coordinateSpace: .local)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 20, coordinateSpace: .local)
                     .onChanged { value in
-                        // Only track horizontal drags (avoid interfering with scroll)
                         let horizontal = abs(value.translation.width)
                         let vertical = abs(value.translation.height)
-                        guard horizontal > vertical else { return }
+
+                        // Lock direction on first significant movement
+                        if !isHorizontalDrag && horizontal > 15 && horizontal > vertical * 1.8 {
+                            isHorizontalDrag = true
+                        }
+
+                        guard isHorizontalDrag else { return }
 
                         withAnimation(.interactiveSpring) {
-                            dragOffset = value.translation.width * 0.3
+                            dragOffset = value.translation.width * 0.25
                         }
                     }
                     .onEnded { value in
-                        let horizontal = abs(value.translation.width)
-                        let vertical = abs(value.translation.height)
+                        let wasHorizontal = isHorizontalDrag
+                        isHorizontalDrag = false
 
                         withAnimation(DS.Animation.emphasize) {
                             dragOffset = 0
                         }
 
-                        guard horizontal > vertical else { return }
+                        guard wasHorizontal else { return }
 
                         if value.translation.width < -swipeThreshold {
-                            // Swipe left → previous period (go back in time)
                             periodOffset -= 1
                         } else if value.translation.width > swipeThreshold, canGoForward {
-                            // Swipe right → next period (go forward in time)
                             periodOffset += 1
                         }
                     }
