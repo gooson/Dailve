@@ -13,7 +13,11 @@ actor HealthKitManager {
         HKQuantityType(.stepCount),
         HKCategoryType(.sleepAnalysis),
         HKQuantityType(.activeEnergyBurned),
-        HKQuantityType(.distanceWalkingRunning)
+        HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.bodyMass),
+        HKQuantityType(.bodyFatPercentage),
+        HKQuantityType(.leanBodyMass),
+        HKQuantityType(.height),
     ]
 
     var isAvailable: Bool {
@@ -41,15 +45,13 @@ actor HealthKitManager {
         store.authorizationStatus(for: type)
     }
 
-    /// Throws `HealthKitError.notAuthorized` if the user has explicitly denied access.
-    /// Note: HealthKit returns `.notDetermined` for read-only types even after granting,
-    /// so only `.sharingDenied` is treated as denied.
+    /// No-op for read-only types. HealthKit's `authorizationStatus` only reflects
+    /// **sharing (write)** permission. For read-only access, it always returns
+    /// `.notDetermined` regardless of the user's actual choice (Apple privacy policy).
+    /// Queries will simply return empty results if the user denied read access.
     func ensureNotDenied(for type: HKObjectType) throws {
-        let status = store.authorizationStatus(for: type)
-        if status == .sharingDenied {
-            logger.warning("HealthKit access denied for type: \(type.identifier)")
-            throw HealthKitError.notAuthorized
-        }
+        // This app only requests read access. authorizationStatus is unreliable
+        // for read types, so we skip the check and let queries return empty data.
     }
 
     func execute<S: HKSample>(_ query: HKSampleQueryDescriptor<S>) async throws -> [S] {

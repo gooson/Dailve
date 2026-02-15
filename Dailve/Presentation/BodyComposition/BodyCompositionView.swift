@@ -7,9 +7,13 @@ struct BodyCompositionView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BodyCompositionRecord.date, order: .reverse) private var records: [BodyCompositionRecord]
 
+    private var allItems: [BodyCompositionListItem] {
+        viewModel.allItems(manualRecords: records)
+    }
+
     var body: some View {
         Group {
-            if records.isEmpty {
+            if records.isEmpty && viewModel.healthKitItems.isEmpty && !viewModel.isLoadingHealthKit {
                 EmptyStateView(
                     icon: "figure.stand",
                     title: "No Body Records",
@@ -20,20 +24,28 @@ struct BodyCompositionView: View {
                         viewModel.isShowingAddSheet = true
                     }
                 )
+            } else if viewModel.isLoadingHealthKit && records.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     VStack(spacing: DS.Spacing.xl) {
-                        if records.count >= 2 {
-                            weightTrendChart
+                        let items = allItems
+                        let weightItems = items.filter { $0.weight != nil }
+                        if weightItems.count >= 2 {
+                            weightTrendChart(weightItems)
                         }
-                        if let latest = records.first {
+                        if let latest = items.first {
                             latestValuesCard(latest)
                         }
-                        historySection
+                        historySection(items)
                     }
                     .padding()
                 }
             }
+        }
+        .task {
+            await viewModel.loadHealthKitData()
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -78,25 +90,25 @@ struct BodyCompositionView: View {
 
     // MARK: - Components
 
-    private var weightTrendChart: some View {
-        let weightRecords = records.filter { $0.weight != nil }.reversed()
+    private func weightTrendChart(_ weightItems: [BodyCompositionListItem]) -> some View {
+        let sorted = weightItems.sorted { $0.date < $1.date }
 
         return StandardCard {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 Text("Weight Trend")
                     .font(.headline)
 
-                Chart(Array(weightRecords), id: \.id) { record in
-                    if let weight = record.weight {
+                Chart(sorted, id: \.id) { item in
+                    if let weight = item.weight {
                         LineMark(
-                            x: .value("Date", record.date, unit: .day),
+                            x: .value("Date", item.date, unit: .day),
                             y: .value("Weight", weight)
                         )
                         .interpolationMethod(.catmullRom)
                         .foregroundStyle(DS.Color.body)
 
                         PointMark(
-                            x: .value("Date", record.date, unit: .day),
+                            x: .value("Date", item.date, unit: .day),
                             y: .value("Weight", weight)
                         )
                         .foregroundStyle(DS.Color.body)
@@ -108,19 +120,32 @@ struct BodyCompositionView: View {
         }
     }
 
-    private func latestValuesCard(_ record: BodyCompositionRecord) -> some View {
-        HStack(spacing: 16) {
-            if let weight = record.weight {
-                metricBadge(label: "Weight", value: String(format: "%.1f", weight), unit: "kg")
+    private func latestValuesCard(_ item: BodyCompositionListItem) -> some View {
+        VStack(spacing: DS.Spacing.sm) {
+            HStack(spacing: 16) {
+                if let weight = item.weight {
+                    metricBadge(label: "Weight", value: String(format: "%.1f", weight), unit: "kg")
+                }
+                if let fat = item.bodyFatPercentage {
+                    metricBadge(label: "Body Fat", value: String(format: "%.1f", fat), unit: "%")
+                }
+                if let muscle = item.muscleMass {
+                    metricBadge(label: "Muscle", value: String(format: "%.1f", muscle), unit: "kg")
+                }
             }
-            if let fat = record.bodyFatPercentage {
-                metricBadge(label: "Body Fat", value: String(format: "%.1f", fat), unit: "%")
-            }
-            if let muscle = record.muscleMass {
-                metricBadge(label: "Muscle", value: String(format: "%.1f", muscle), unit: "kg")
+            .frame(maxWidth: .infinity)
+
+            if item.source == .healthKit {
+                HStack(spacing: DS.Spacing.xs) {
+                    Image(systemName: "heart.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                    Text(item.date, style: .date)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .frame(maxWidth: .infinity)
     }
 
     private func metricBadge(label: String, value: String, unit: String) -> some View {
@@ -142,47 +167,60 @@ struct BodyCompositionView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private var historySection: some View {
+    private func historySection(_ items: [BodyCompositionListItem]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("History")
                 .font(.headline)
 
-            ForEach(records) { record in
-                historyRow(record)
+            ForEach(items) { item in
+                historyRow(item)
             }
         }
     }
 
-    private func historyRow(_ record: BodyCompositionRecord) -> some View {
+    private func historyRow(_ item: BodyCompositionListItem) -> some View {
         HStack {
+            if item.source == .healthKit {
+                Image(systemName: "heart.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                Text(record.date, style: .date)
+                Text(item.date, style: .date)
                     .font(.subheadline)
                 HStack(spacing: DS.Spacing.md) {
-                    if let w = record.weight { Text("\(String(format: "%.1f", w))kg").font(.caption).foregroundStyle(.secondary) }
-                    if let f = record.bodyFatPercentage { Text("\(String(format: "%.1f", f))%").font(.caption).foregroundStyle(.secondary) }
-                    if let m = record.muscleMass { Text("\(String(format: "%.1f", m))kg").font(.caption).foregroundStyle(.secondary) }
+                    if let w = item.weight { Text("\(String(format: "%.1f", w))kg").font(.caption).foregroundStyle(.secondary) }
+                    if let f = item.bodyFatPercentage { Text("\(String(format: "%.1f", f))%").font(.caption).foregroundStyle(.secondary) }
+                    if let m = item.muscleMass { Text("\(String(format: "%.1f", m))kg").font(.caption).foregroundStyle(.secondary) }
                 }
             }
             Spacer()
-            Image(systemName: "ellipsis")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if item.source == .manual {
+                Image(systemName: "ellipsis")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(DS.Spacing.md)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
         .contextMenu {
-            Button {
-                viewModel.startEditing(record)
-            } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                modelContext.delete(record)
-            } label: {
-                Label("Delete", systemImage: "trash")
+            if item.source == .manual, let record = findManualRecord(id: item.id) {
+                Button {
+                    viewModel.startEditing(record)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                Button(role: .destructive) {
+                    modelContext.delete(record)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
+    }
+
+    private func findManualRecord(id: String) -> BodyCompositionRecord? {
+        records.first { $0.id.uuidString == id }
     }
 }
 

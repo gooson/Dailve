@@ -145,4 +145,42 @@ struct BodyCompositionViewModelTests {
         #expect(vm.selectedDate == record.date)
         #expect(vm.newWeight == "72.0")
     }
+
+    // MARK: - HealthKit + Manual Merge
+
+    @Test("allItems merges and sorts by date descending")
+    func allItemsMerge() {
+        let vm = BodyCompositionViewModel()
+        let now = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now)!
+
+        // Simulate HealthKit items
+        vm.healthKitItems = [
+            BodyCompositionListItem(
+                id: "hk-1",
+                date: yesterday,
+                weight: 68.0,
+                bodyFatPercentage: nil,
+                muscleMass: nil,
+                memo: "",
+                source: .healthKit
+            )
+        ]
+
+        let manualRecord = BodyCompositionRecord(date: now, weight: 70.0)
+        let items = vm.allItems(manualRecords: [manualRecord])
+
+        #expect(items.count == 2)
+        #expect(items.first?.source == .manual) // today manual is more recent
+        #expect(items.last?.source == .healthKit)
+    }
+
+    @Test("latestValues returns first item")
+    func latestValues() {
+        let vm = BodyCompositionViewModel()
+        let record = BodyCompositionRecord(date: Date(), weight: 70.0)
+        let latest = vm.latestValues(manualRecords: [record])
+        #expect(latest != nil)
+        #expect(latest?.weight == 70.0)
+    }
 }

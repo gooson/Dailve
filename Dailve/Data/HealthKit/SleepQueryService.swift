@@ -2,6 +2,7 @@ import HealthKit
 
 protocol SleepQuerying: Sendable {
     func fetchSleepStages(for date: Date) async throws -> [SleepStage]
+    func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)?
 }
 
 struct SleepQueryService: SleepQuerying, Sendable {
@@ -94,6 +95,20 @@ struct SleepQueryService: SleepQuerying, Sendable {
             // else: non-Watch sample overlaps existing → skip
         }
         return result
+    }
+
+    func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)? {
+        let calendar = Calendar.current
+        let today = Date()
+        for dayOffset in 0...days {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { continue }
+            let stages = try await fetchSleepStages(for: date)
+            let sleepStages = stages.filter { $0.stage != .awake }
+            if !sleepStages.isEmpty {
+                return (stages: stages, date: date)
+            }
+        }
+        return nil
     }
 
     private func isWatchSource(_ sample: HKSample) -> Bool {
