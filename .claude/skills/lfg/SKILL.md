@@ -29,11 +29,11 @@ Phase 1: Plan ──> Phase 2: Work ──> Phase 3: Review ──> Phase 4: Res
 
 /work 의 4단계를 따릅니다:
 1. Setup: 브랜치 생성, 환경 준비
-2. Implement: 계획에 따라 구현
-3. Quality Check: 테스트, 린트, 타입 체크
+2. Implement: 계획에 따라 구현 + 유닛 테스트 작성
+3. Quality Check: 빌드, 테스트, 전문 에이전트 검증 (/work Phase 3 참조)
 4. Commit: 변경사항 커밋
 
-**Quality Gate**: 모든 자동 검증이 통과해야 다음 단계로 진행합니다.
+**Quality Gate**: 빌드 + 테스트 통과, 에이전트 검증 완료 후 다음 단계로 진행합니다.
 
 ## Phase 3: Review (리뷰)
 
@@ -47,9 +47,22 @@ Phase 1: Plan ──> Phase 2: Work ──> Phase 3: Review ──> Phase 4: Res
 
 결과를 P1/P2/P3로 정리합니다.
 
+## Phase 3.5: Quality Agents (품질 에이전트)
+
+6관점 리뷰와 별도로, 변경 내용에 따라 전문 에이전트를 실행합니다:
+
+| 조건 | 에이전트 | 목적 |
+|------|---------|------|
+| UI/View 코드 변경 | `swift-ui-expert` | 레이아웃, Auto Layout, SwiftUI 구현 검증 |
+| UI/View 코드 변경 | `apple-ux-expert` | HIG 준수, UX 흐름, 애니메이션 품질 |
+| 대량 데이터 처리 구현 | `perf-optimizer` | 스크롤 성능, 메모리, 파싱 최적화 |
+| 주요 기능 완성 | `app-quality-gate` | 코드 정확성 + 테스트 + HIG + 아키텍처 종합 심사 |
+
+에이전트 실행은 가능한 한 병렬로 수행합니다.
+
 ## Phase 4: Resolve (해결)
 
-리뷰 결과를 처리합니다:
+리뷰 + 에이전트 결과를 통합 처리합니다:
 - **P1 (Critical)**: 즉시 자동 수정합니다
 - **P2 (Important)**: 사용자에게 수정 여부를 확인합니다
 - **P3 (Minor)**: TODO로 기록합니다
@@ -68,11 +81,16 @@ Phase 1: Plan ──> Phase 2: Work ──> Phase 3: Review ──> Phase 4: Res
 ## Phase 6: Ship (배포)
 
 1. 최종 커밋 정리
-2. PR 생성:
+2. `pr-reviewer` 에이전트로 최종 PR 리뷰 실행:
+   - git diff 기반 변경사항 분석
+   - `.claude/rules/` 코딩 룰 준수 검증
+   - HealthKit/SwiftData 안전성 확인
+   - 크래시 위험 코드 검출
+3. PR 생성:
    ```
    gh pr create --title "{title}" --body "{body}"
    ```
-3. PR 링크를 사용자에게 전달
+4. PR 링크를 사용자에게 전달
 
 ## Pipeline Control
 

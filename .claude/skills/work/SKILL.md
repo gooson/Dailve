@@ -42,12 +42,25 @@ $ARGUMENTS 에 대한 구현을 수행합니다.
 ### 3.1 자동 검증
 
 프로젝트에 맞는 명령을 실행합니다:
-- Type check (if applicable)
-- Lint check (if applicable)
-- Test suite (if applicable)
-- Build (if applicable)
+- Build: `xcodebuild build ...`
+- Test suite: `xcodebuild test ...` (xcode-project skill 참조)
 
-### 3.2 자체 검토
+### 3.2 전문 에이전트 검증
+
+변경 내용에 따라 적절한 에이전트를 실행합니다:
+
+| 변경 유형 | 에이전트 | 실행 조건 |
+|-----------|---------|-----------|
+| UI/View 변경 | `swift-ui-expert` | SwiftUI View, Auto Layout, 복잡한 UI 구현 |
+| UI/View 변경 | `apple-ux-expert` | UX 흐름, HIG 준수, 애니메이션, 시각적 완성도 |
+| 대량 데이터 처리 | `perf-optimizer` | 1000+ 노드 렌더링, 대용량 파싱, 메모리 집약 작업 |
+| 기능 구현 완료 | `app-quality-gate` | 주요 기능 완성 시 종합 품질 심사 |
+
+- UI 변경이 포함된 경우: `swift-ui-expert` → `apple-ux-expert` 순서로 실행
+- 성능 민감 코드인 경우: `perf-optimizer` 실행
+- 주요 기능 완성 시: `app-quality-gate`로 종합 점검
+
+### 3.3 자체 검토
 
 - [ ] 계획서의 모든 Step이 구현되었는가?
 - [ ] Edge case가 처리되었는가?
@@ -55,7 +68,7 @@ $ARGUMENTS 에 대한 구현을 수행합니다.
 - [ ] 불필요한 코드가 없는가?
 - [ ] 보안 취약점이 없는가?
 
-### 3.3 품질 Gate
+### 3.4 품질 Gate
 
 품질 검증에 실패하면:
 1. 실패 원인을 분석합니다
