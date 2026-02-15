@@ -1,4 +1,5 @@
-import SwiftUI
+import Foundation
+import Observation
 
 @Observable
 @MainActor
@@ -17,14 +18,14 @@ final class BodyCompositionViewModel {
     var newBodyFat: String = ""
     var newMuscleMass: String = ""
     var newMemo: String = ""
-    var selectedDate: Date = Date()
+    var selectedDate: Date = Date() { didSet { validationError = nil } }
     var validationError: String?
     var isSaving = false
 
     func createValidatedRecord() -> BodyCompositionRecord? {
         guard !isSaving else { return nil }
 
-        if selectedDate > Date() {
+        if selectedDate.isFuture {
             validationError = "Future dates are not allowed"
             return nil
         }
@@ -42,7 +43,8 @@ final class BodyCompositionViewModel {
     }
 
     func applyUpdate(to record: BodyCompositionRecord) -> Bool {
-        if selectedDate > Date() {
+        guard !isSaving else { return false }
+        if selectedDate.isFuture {
             validationError = "Future dates are not allowed"
             return false
         }

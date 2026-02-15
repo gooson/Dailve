@@ -1,6 +1,7 @@
 ---
 name: ui-testing
 description: "UI 테스트 작성 패턴과 iPad/iPhone 호환성 테스트 가이드. UI 테스트 관련 작업 시 참조됩니다."
+agent: ui-test-expert
 ---
 
 # UI Testing Patterns
