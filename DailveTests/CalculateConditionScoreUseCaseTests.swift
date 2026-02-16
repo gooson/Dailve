@@ -81,4 +81,83 @@ struct CalculateConditionScoreUseCaseTests {
             #expect(scoreWith.score <= scoreWithout.score)
         }
     }
+
+    // MARK: - Score Contributions
+
+    @Test("Contributions empty when insufficient data")
+    func contributionsEmptyInsufficientData() {
+        let samples = (0..<3).map { day in
+            HRVSample(value: 50, date: Calendar.current.date(byAdding: .day, value: -day, to: Date())!)
+        }
+        let output = sut.execute(input: .init(
+            hrvSamples: samples, todayRHR: nil, yesterdayRHR: nil
+        ))
+        #expect(output.contributions.isEmpty)
+    }
+
+    @Test("HRV contribution positive when z-score is high")
+    func hrvContributionPositive() {
+        var samples = (1..<7).map { day in
+            HRVSample(value: 40, date: Calendar.current.date(byAdding: .day, value: -day, to: Date())!)
+        }
+        // Today: significantly higher HRV
+        samples.insert(HRVSample(value: 80, date: Date()), at: 0)
+
+        let output = sut.execute(input: .init(
+            hrvSamples: samples, todayRHR: nil, yesterdayRHR: nil
+        ))
+        let hrv = output.contributions.first { $0.factor == .hrv }
+        #expect(hrv?.impact == .positive)
+    }
+
+    @Test("HRV contribution negative when z-score is low")
+    func hrvContributionNegative() {
+        var samples = (1..<7).map { day in
+            HRVSample(value: 60, date: Calendar.current.date(byAdding: .day, value: -day, to: Date())!)
+        }
+        // Today: significantly lower HRV
+        samples.insert(HRVSample(value: 25, date: Date()), at: 0)
+
+        let output = sut.execute(input: .init(
+            hrvSamples: samples, todayRHR: nil, yesterdayRHR: nil
+        ))
+        let hrv = output.contributions.first { $0.factor == .hrv }
+        #expect(hrv?.impact == .negative)
+    }
+
+    @Test("RHR contribution negative when RHR increases")
+    func rhrContributionNegative() {
+        let samples = (0..<7).map { day in
+            HRVSample(value: 50, date: Calendar.current.date(byAdding: .day, value: -day, to: Date())!)
+        }
+        let output = sut.execute(input: .init(
+            hrvSamples: samples, todayRHR: 75, yesterdayRHR: 65
+        ))
+        let rhr = output.contributions.first { $0.factor == .rhr }
+        #expect(rhr?.impact == .negative)
+    }
+
+    @Test("RHR contribution positive when RHR decreases")
+    func rhrContributionPositive() {
+        let samples = (0..<7).map { day in
+            HRVSample(value: 50, date: Calendar.current.date(byAdding: .day, value: -day, to: Date())!)
+        }
+        let output = sut.execute(input: .init(
+            hrvSamples: samples, todayRHR: 60, yesterdayRHR: 70
+        ))
+        let rhr = output.contributions.first { $0.factor == .rhr }
+        #expect(rhr?.impact == .positive)
+    }
+
+    @Test("No RHR contribution without RHR data")
+    func noRhrContributionWithoutData() {
+        let samples = (0..<7).map { day in
+            HRVSample(value: 50, date: Calendar.current.date(byAdding: .day, value: -day, to: Date())!)
+        }
+        let output = sut.execute(input: .init(
+            hrvSamples: samples, todayRHR: nil, yesterdayRHR: nil
+        ))
+        let rhr = output.contributions.first { $0.factor == .rhr }
+        #expect(rhr == nil)
+    }
 }

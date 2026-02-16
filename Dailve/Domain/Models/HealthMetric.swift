@@ -18,6 +18,7 @@ struct HealthMetric: Identifiable, Hashable, Sendable {
         case exercise
         case steps
         case weight
+        case bmi
     }
 
     var changeSignificance: Double {

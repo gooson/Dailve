@@ -10,6 +10,10 @@ protocol BodyCompositionQuerying: Sendable {
     func fetchBodyFat(days: Int) async throws -> [BodyCompositionSample]
     func fetchLeanBodyMass(days: Int) async throws -> [BodyCompositionSample]
     func fetchWeight(start: Date, end: Date) async throws -> [BodyCompositionSample]
+    func fetchLatestWeight(withinDays days: Int) async throws -> (value: Double, date: Date)?
+    func fetchBMI(for date: Date) async throws -> Double?
+    func fetchLatestBMI(withinDays days: Int) async throws -> (value: Double, date: Date)?
+    func fetchBMI(start: Date, end: Date) async throws -> [BodyCompositionSample]
 }
 
 struct BodyCompositionQueryService: BodyCompositionQuerying, Sendable {
@@ -48,6 +52,75 @@ struct BodyCompositionQueryService: BodyCompositionQuerying, Sendable {
         try await fetchQuantitySamples(
             type: HKQuantityType(.bodyMass),
             unit: .gramUnit(with: .kilo),
+            start: start,
+            end: end
+        )
+    }
+
+    func fetchLatestWeight(withinDays days: Int) async throws -> (value: Double, date: Date)? {
+        let calendar = Calendar.current
+        let today = Date()
+        // Search from yesterday back to `days` ago in a single query (sorted by most recent)
+        let start = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: today)) ?? today
+        let end = calendar.startOfDay(for: today) // exclude today (already queried separately)
+        let samples = try await fetchQuantitySamples(
+            type: HKQuantityType(.bodyMass),
+            unit: .gramUnit(with: .kilo),
+            start: start,
+            end: end
+        )
+        // samples are sorted by date descending (most recent first)
+        guard let latest = samples.first else { return nil }
+        return (value: latest.value, date: latest.date)
+    }
+
+    func fetchBMI(for date: Date) async throws -> Double? {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            return nil
+        }
+
+        try await manager.ensureNotDenied(for: HKQuantityType(.bodyMassIndex))
+
+        let predicate = HKQuery.predicateForSamples(
+            withStart: startOfDay,
+            end: endOfDay,
+            options: .strictStartDate
+        )
+        let descriptor = HKStatisticsQueryDescriptor(
+            predicate: .quantitySample(type: HKQuantityType(.bodyMassIndex), predicate: predicate),
+            options: .mostRecent
+        )
+        let statistics = try await manager.executeStatistics(descriptor)
+        guard let value = statistics?.mostRecentQuantity()?.doubleValue(for: .count()),
+              value > 0 else {
+            return nil
+        }
+        return value
+    }
+
+    func fetchLatestBMI(withinDays days: Int) async throws -> (value: Double, date: Date)? {
+        let calendar = Calendar.current
+        let today = Date()
+        // Search from yesterday back to `days` ago in a single query
+        let start = calendar.date(byAdding: .day, value: -days, to: calendar.startOfDay(for: today)) ?? today
+        let end = calendar.startOfDay(for: today) // exclude today (already queried separately)
+        let samples = try await fetchQuantitySamples(
+            type: HKQuantityType(.bodyMassIndex),
+            unit: .count(),
+            start: start,
+            end: end
+        )
+        // samples are sorted by date descending (most recent first)
+        guard let latest = samples.first, latest.value > 0 else { return nil }
+        return (value: latest.value, date: latest.date)
+    }
+
+    func fetchBMI(start: Date, end: Date) async throws -> [BodyCompositionSample] {
+        try await fetchQuantitySamples(
+            type: HKQuantityType(.bodyMassIndex),
+            unit: .count(),
             start: start,
             end: end
         )

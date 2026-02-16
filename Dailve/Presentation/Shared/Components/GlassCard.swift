@@ -5,15 +5,20 @@ struct HeroCard<Content: View>: View {
     let tintColor: Color
     @ViewBuilder let content: () -> Content
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var cornerRadius: CGFloat { sizeClass == .regular ? DS.Radius.xxl : DS.Radius.xl }
+    private var cardPadding: CGFloat { sizeClass == .regular ? DS.Spacing.xxxl : DS.Spacing.xxl }
+
     var body: some View {
         content()
             .frame(maxWidth: .infinity)
-            .padding(DS.Spacing.xxl)
+            .padding(cardPadding)
             .background {
-                RoundedRectangle(cornerRadius: DS.Radius.xl)
+                RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        RoundedRectangle(cornerRadius: DS.Radius.xl)
+                        RoundedRectangle(cornerRadius: cornerRadius)
                             .fill(tintColor.opacity(0.08).gradient)
                     )
             }
@@ -22,16 +27,22 @@ struct HeroCard<Content: View>: View {
 
 /// Standard card — metric cards, chart containers.
 struct StandardCard<Content: View>: View {
-    var padding: CGFloat = DS.Spacing.lg
+    var padding: CGFloat?
     @ViewBuilder let content: () -> Content
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var cornerRadius: CGFloat { sizeClass == .regular ? DS.Radius.lg : DS.Radius.md }
+    private var resolvedPadding: CGFloat {
+        padding ?? (sizeClass == .regular ? DS.Spacing.xl : DS.Spacing.lg)
+    }
 
     var body: some View {
         content()
-            .padding(padding)
+            .padding(resolvedPadding)
             .background {
-                RoundedRectangle(cornerRadius: DS.Radius.md)
+                RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(.thinMaterial)
                     .shadow(
                         color: colorScheme == .dark
@@ -48,11 +59,16 @@ struct StandardCard<Content: View>: View {
 struct InlineCard<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var cardPadding: CGFloat { sizeClass == .regular ? DS.Spacing.lg : DS.Spacing.md }
+    private var cornerRadius: CGFloat { sizeClass == .regular ? DS.Radius.md : DS.Radius.sm }
+
     var body: some View {
         content()
-            .padding(DS.Spacing.md)
+            .padding(cardPadding)
             .background {
-                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(.ultraThinMaterial)
             }
     }

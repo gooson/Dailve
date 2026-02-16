@@ -84,17 +84,12 @@ struct AreaLineChartView: View {
             .chartXSelection(value: $selectedDate)
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Weight trend chart, \(data.count) data points")
-            .accessibilityValue(accessibilitySummary)
+            .accessibilityChartDescriptor(chartDescriptor)
         }
     }
 
-    private var accessibilitySummary: String {
-        guard !data.isEmpty else { return "No data" }
-        let values = data.map(\.value)
-        let latest = values.last ?? 0
-        return "Latest \(String(format: "%.1f", latest)) \(unitSuffix)"
+    private var chartDescriptor: StandardChartAccessibility {
+        StandardChartAccessibility(title: "Weight", data: data, unitSuffix: unitSuffix)
     }
 
     // MARK: - Subviews

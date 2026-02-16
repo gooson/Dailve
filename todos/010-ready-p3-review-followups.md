@@ -18,11 +18,9 @@ updated: 2026-02-16
 **File:** `.claude/agents/ui-test-expert.md`
 **Action:** Output 포맷을 다른 리뷰어(security, performance 등)와 동일한 수준으로 상세화
 
-## 3. AdaptiveNavigation 사용법 문서화 (#18)
+## 3. ~~AdaptiveNavigation 사용법 문서화~~ (RESOLVED)
 
-**File:** `AdaptiveNavigation.swift` 또는 `.claude/rules/`
-**Action:** 새 View 생성 시 `adaptiveNavigation(title:)` 사용 규칙 문서화
-**Note:** TODO #009 (NavigationStack 중앙화)와 함께 처리
+**Note:** AdaptiveNavigation 삭제됨 (TabView(.sidebarAdaptable)로 교체). 더 이상 해당 없음.
 
 ## 4. CloudKit date precision/timezone roundtrip 검증 (#20)
 

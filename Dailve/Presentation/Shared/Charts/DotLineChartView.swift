@@ -122,17 +122,12 @@ struct DotLineChartView: View {
             .chartXSelection(value: $selectedDate)
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(yAxisLabel) chart, \(data.count) data points")
-            .accessibilityValue(accessibilitySummary)
+            .accessibilityChartDescriptor(chartDescriptor)
         }
     }
 
-    private var accessibilitySummary: String {
-        guard !data.isEmpty else { return "No data" }
-        let sum = data.reduce(0.0) { $0 + $1.value }
-        let avg = sum / Double(data.count)
-        return "Average \(String(format: "%.1f", avg))"
+    private var chartDescriptor: StandardChartAccessibility {
+        StandardChartAccessibility(title: yAxisLabel, data: data, unitSuffix: yAxisLabel)
     }
 
     // MARK: - Helpers

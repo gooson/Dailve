@@ -58,6 +58,32 @@ private struct MockStepsService: StepsQuerying {
     func fetchStepsCollection(start: Date, end: Date, interval: DateComponents) async throws -> [(date: Date, sum: Double)] { [] }
 }
 
+private struct MockBodyService: BodyCompositionQuerying {
+    var weightSamples: [BodyCompositionSample] = []
+    var latestWeight: (value: Double, date: Date)?
+    var todayBMI: Double?
+    var latestBMI: (value: Double, date: Date)?
+    var bmiSamples: [BodyCompositionSample] = []
+
+    func fetchWeight(days: Int) async throws -> [BodyCompositionSample] { weightSamples }
+    func fetchBodyFat(days: Int) async throws -> [BodyCompositionSample] { [] }
+    func fetchLeanBodyMass(days: Int) async throws -> [BodyCompositionSample] { [] }
+    func fetchWeight(start: Date, end: Date) async throws -> [BodyCompositionSample] {
+        let calendar = Calendar.current
+        return weightSamples.filter {
+            $0.date >= calendar.startOfDay(for: start) && $0.date < end
+        }
+    }
+    func fetchLatestWeight(withinDays days: Int) async throws -> (value: Double, date: Date)? { latestWeight }
+    func fetchBMI(for date: Date) async throws -> Double? {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return todayBMI }
+        return nil
+    }
+    func fetchLatestBMI(withinDays days: Int) async throws -> (value: Double, date: Date)? { latestBMI }
+    func fetchBMI(start: Date, end: Date) async throws -> [BodyCompositionSample] { bmiSamples }
+}
+
 // MARK: - Tests
 
 @Suite("DashboardViewModel Fallback")
@@ -212,6 +238,54 @@ struct DashboardViewModelTests {
         #expect(exerciseMetric?.isHistorical == true)
     }
 
+    // MARK: - Weight Fallback
+
+    @Test("Weight falls back to latest when today is empty")
+    func weightFallback() async {
+        let threeDaysAgo = Calendar.current.date(byAdding: .day, value: -3, to: Date())!
+        let body = MockBodyService(
+            latestWeight: (value: 72.5, date: threeDaysAgo)
+        )
+        let vm = DashboardViewModel(
+            hrvService: MockHRVService(),
+            sleepService: MockSleepService(),
+            workoutService: MockWorkoutService(),
+            stepsService: MockStepsService(),
+            bodyService: body
+        )
+
+        await vm.loadData()
+
+        let weightMetric = vm.sortedMetrics.first { $0.category == .weight }
+        #expect(weightMetric != nil)
+        #expect(weightMetric?.value == 72.5)
+        #expect(weightMetric?.isHistorical == true)
+    }
+
+    // MARK: - BMI Fallback
+
+    @Test("BMI falls back to latest when today is nil")
+    func bmiFallback() async {
+        let twoDaysAgo = Calendar.current.date(byAdding: .day, value: -2, to: Date())!
+        let body = MockBodyService(
+            latestBMI: (value: 23.4, date: twoDaysAgo)
+        )
+        let vm = DashboardViewModel(
+            hrvService: MockHRVService(),
+            sleepService: MockSleepService(),
+            workoutService: MockWorkoutService(),
+            stepsService: MockStepsService(),
+            bodyService: body
+        )
+
+        await vm.loadData()
+
+        let bmiMetric = vm.sortedMetrics.first { $0.category == .bmi }
+        #expect(bmiMetric != nil)
+        #expect(bmiMetric?.value == 23.4)
+        #expect(bmiMetric?.isHistorical == true)
+    }
+
     // MARK: - No Data
 
     @Test("Empty state when all services return no data")
@@ -220,7 +294,8 @@ struct DashboardViewModelTests {
             hrvService: MockHRVService(),
             sleepService: MockSleepService(),
             workoutService: MockWorkoutService(),
-            stepsService: MockStepsService()
+            stepsService: MockStepsService(),
+            bodyService: MockBodyService()
         )
 
         await vm.loadData()

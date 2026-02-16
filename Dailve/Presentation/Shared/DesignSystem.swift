@@ -68,11 +68,14 @@ enum DS {
         static let numeric = SwiftUI.Animation.easeOut(duration: 0.6)
     }
 
-    // MARK: - Typography
+    // MARK: - Typography (Dynamic Type compatible)
 
     enum Typography {
-        static let heroScore = Font.system(size: 56, weight: .bold, design: .rounded)
-        static let cardScore = Font.system(size: 28, weight: .bold, design: .rounded)
+        /// Large score display (detail views). Scales with Dynamic Type via .largeTitle base.
+        static let heroScore = Font.system(.largeTitle, design: .rounded, weight: .bold)
+        /// Card-level score display (hero card, summary header). Scales with Dynamic Type via .title base.
+        static let cardScore = Font.system(.title, design: .rounded, weight: .bold)
+        /// Section headers.
         static let sectionTitle = Font.title3.weight(.semibold)
     }
 }

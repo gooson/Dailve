@@ -5,33 +5,38 @@ struct MetricHighlightsView: View {
     let highlights: [Highlight]
     let category: HealthMetric.Category
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isRegular: Bool { sizeClass == .regular }
+
     var body: some View {
         if !highlights.isEmpty {
-            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            VStack(alignment: .leading, spacing: isRegular ? DS.Spacing.md : DS.Spacing.sm) {
                 Text("Highlights")
-                    .font(.subheadline)
+                    .font(isRegular ? .headline : .subheadline)
                     .fontWeight(.semibold)
 
                 ForEach(highlights) { highlight in
                     InlineCard {
-                        HStack(spacing: DS.Spacing.md) {
+                        HStack(spacing: isRegular ? DS.Spacing.lg : DS.Spacing.md) {
                             Image(systemName: iconName(for: highlight.type))
+                                .font(isRegular ? .body : .subheadline)
                                 .foregroundStyle(iconColor(for: highlight.type))
-                                .frame(width: 24)
+                                .frame(width: isRegular ? 28 : 24)
 
                             VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
                                 Text(highlight.label)
-                                    .font(.caption)
+                                    .font(isRegular ? .subheadline : .caption)
                                     .foregroundStyle(.secondary)
                                 Text(formattedValue(highlight.value))
-                                    .font(.subheadline)
+                                    .font(isRegular ? .body : .subheadline)
                                     .fontWeight(.medium)
                             }
 
                             Spacer()
 
                             Text(highlight.date, format: .dateTime.month(.abbreviated).day())
-                                .font(.caption)
+                                .font(isRegular ? .subheadline : .caption)
                                 .foregroundStyle(.tertiary)
                         }
                     }
@@ -66,6 +71,7 @@ struct MetricHighlightsView: View {
         case .exercise: String(format: "%.0f min", value)
         case .steps:    String(format: "%.0f", value)
         case .weight:   String(format: "%.1f kg", value)
+        case .bmi:      String(format: "%.1f", value)
         }
     }
 }

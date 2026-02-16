@@ -141,3 +141,12 @@
 19. **Deprecated API 즉시 교체**: Xcode warning 0 정책. `HKWorkout.totalEnergyBurned` → `statistics(for:).sumQuantity()` 등 deprecated는 발견 즉시 수정
 20. **Domain에 DateFormatter 금지**: `TimePeriod.rangeLabel` 같은 locale-specific 포맷팅은 `Presentation/Shared/Extensions/{Type}+View.swift`로 분리
 21. **Force-unwrap은 `Calendar.date(byAdding:)` 등에도 금지**: 실패 확률이 극히 낮더라도 `?? fallback` 사용. 방어 코딩 원칙 우선
+
+### 2026-02-16: 리뷰 적용 교정
+
+22. **HealthKit 값 범위 검증 필수**: Weight(0-500kg), BMI(0-100), HR(20-300bpm) 등 도메인별 범위 guard. 센서 오류/수동 입력 오류 값이 UI에 노출되면 신뢰도 하락
+23. **동일 데이터의 모든 쿼리 경로에서 동일 검증**: `fetchBMI(for:)`와 `fetchLatestBMI`처럼 같은 데이터의 다른 접근 메서드는 동일한 값 검증 수준 유지
+24. **historical fallback 시 change 계산 스킵**: 3일 전 데이터로 어제와의 차이를 보여주는 것은 의미 없음. `isHistorical == true`이면 `change = nil`
+25. **parallel fetch에 partial failure 보고 필수**: async let 4개+ 사용 시 실패 카운트를 추적하여 "Some data could not be loaded (N of M sources)" 형태로 사용자에게 안내
+26. **Hashable 구현 시 == 와 hash 일치 필수**: `==`에서 비교하는 프로퍼티와 `hash(into:)`에 combine하는 프로퍼티가 동일해야 함. 불일치 시 Dictionary/Set에서 예측 불가 동작
+27. **리뷰 적용은 파일별 batch**: 6관점 리뷰 결과를 파일별로 병합 후 한 번에 적용. 중간 빌드 없이 최종 1회 빌드+테스트로 검증

@@ -41,11 +41,16 @@ private struct StubWorkoutService: WorkoutQuerying {
 
 private struct StubBodyService: BodyCompositionQuerying {
     var weightSamples: [BodyCompositionSample] = []
+    var bmiSamples: [BodyCompositionSample] = []
 
     func fetchWeight(days: Int) async throws -> [BodyCompositionSample] { weightSamples }
     func fetchBodyFat(days: Int) async throws -> [BodyCompositionSample] { [] }
     func fetchLeanBodyMass(days: Int) async throws -> [BodyCompositionSample] { [] }
     func fetchWeight(start: Date, end: Date) async throws -> [BodyCompositionSample] { weightSamples }
+    func fetchLatestWeight(withinDays days: Int) async throws -> (value: Double, date: Date)? { nil }
+    func fetchBMI(for date: Date) async throws -> Double? { nil }
+    func fetchLatestBMI(withinDays days: Int) async throws -> (value: Double, date: Date)? { nil }
+    func fetchBMI(start: Date, end: Date) async throws -> [BodyCompositionSample] { bmiSamples }
 }
 
 // MARK: - Tests

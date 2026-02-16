@@ -2,19 +2,26 @@ import SwiftUI
 
 struct DashboardView: View {
     @State private var viewModel = DashboardViewModel()
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         ScrollView {
-            VStack(spacing: DS.Spacing.xl) {
+            VStack(spacing: sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.xl) {
                 if viewModel.isLoading && viewModel.conditionScore == nil && viewModel.sortedMetrics.isEmpty {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 200)
+                    DashboardSkeletonView()
                 } else if viewModel.conditionScore == nil && viewModel.sortedMetrics.isEmpty && !viewModel.isLoading {
-                    EmptyStateView(
-                        icon: "heart.text.clipboard",
-                        title: "No Health Data",
-                        message: "Grant HealthKit access to see your condition score and daily metrics."
-                    )
+                    if viewModel.errorMessage != nil {
+                        errorSection
+                    } else {
+                        EmptyStateView(
+                            icon: "heart.text.clipboard",
+                            title: "No Health Data",
+                            message: "Grant HealthKit access to see your condition score and daily metrics.",
+                            actionTitle: "Open Settings",
+                            action: openSettings
+                        )
+                    }
                 } else {
                     // Hero Section
                     if let score = viewModel.conditionScore {
@@ -25,22 +32,52 @@ struct DashboardView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .hoverEffect(.highlight)
                     } else if let status = viewModel.baselineStatus, !status.isReady {
                         BaselineProgressView(status: status)
                     }
 
-                    // Metric Cards (smart sorted)
-                    SmartCardGrid(metrics: viewModel.sortedMetrics)
+                    // Last updated timestamp
+                    if let lastUpdated = viewModel.lastUpdated {
+                        Text("Updated \(lastUpdated, format: .relative(presentation: .named))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
 
+                    // Score Contributors (Oura-style)
+                    if let score = viewModel.conditionScore, !score.contributions.isEmpty {
+                        ScoreContributorsView(contributions: score.contributions)
+                    }
+
+                    // Error banner (non-blocking — data may be partially loaded)
                     if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding()
+                        errorBanner(error)
+                    }
+
+                    // Health Signals section (HRV, RHR, Weight, BMI)
+                    if !viewModel.healthSignals.isEmpty {
+                        Section {
+                            SmartCardGrid(metrics: viewModel.healthSignals)
+                        } header: {
+                            Text("Health Signals")
+                                .font(DS.Typography.sectionTitle)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    if !viewModel.activityMetrics.isEmpty {
+                        Section {
+                            SmartCardGrid(metrics: viewModel.activityMetrics)
+                        } header: {
+                            Text("Activity")
+                                .font(DS.Typography.sectionTitle)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
             }
-            .padding()
+            .padding(sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.lg)
         }
         .background {
             LinearGradient(
@@ -65,7 +102,46 @@ struct DashboardView: View {
         .task {
             await viewModel.loadData()
         }
-        .adaptiveNavigation(title: "Dailve")
+        .navigationTitle("Dailve")
+    }
+
+    // MARK: - Error States
+
+    private var errorSection: some View {
+        EmptyStateView(
+            icon: "exclamationmark.triangle",
+            title: "Something Went Wrong",
+            message: viewModel.errorMessage ?? "An unexpected error occurred.",
+            actionTitle: "Try Again",
+            action: { Task { await viewModel.loadData() } }
+        )
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        InlineCard {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(DS.Color.caution)
+
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                Spacer()
+
+                Button("Retry") {
+                    Task { await viewModel.loadData() }
+                }
+                .font(.caption)
+                .fontWeight(.medium)
+            }
+        }
+    }
+
+    private func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(url)
     }
 }
 

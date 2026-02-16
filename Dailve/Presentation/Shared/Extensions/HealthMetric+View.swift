@@ -1,28 +1,58 @@
 import SwiftUI
 
 extension HealthMetric {
-    var formattedValue: String {
+    /// Formatted numeric value only (no unit). Use with `category.unitLabel` for display.
+    var formattedNumericValue: String {
         switch category {
         case .hrv:
-            return String(format: "%.0fms", value)
+            return String(format: "%.0f", value)
         case .rhr:
-            return String(format: "%.0fbpm", value)
+            return String(format: "%.0f", value)
         case .sleep:
             return value.hoursMinutesFormatted
         case .exercise:
-            // Per-type cards use their own unit (km, m, etc.)
             switch unit {
-            case "km":  return String(format: "%.1fkm", value)
-            case "m":   return String(format: "%.0fm", value)
-            default:    return String(format: "%.0fmin", value)
+            case "km":  return String(format: "%.1f", value)
+            case "m":   return String(format: "%.0f", value)
+            default:    return String(format: "%.0f", value)
             }
         case .steps:
             return String(format: "%.0f", value)
         case .weight:
-            return String(format: "%.1fkg", value)
+            return String(format: "%.1f", value)
+        case .bmi:
+            return String(format: "%.1f", value)
         }
     }
 
+    /// Combined value+unit for contexts needing a single string (accessibility, etc.).
+    var formattedValue: String {
+        // Sleep already includes "h m" in its formatted value
+        if category == .sleep { return formattedNumericValue }
+        let unit = resolvedUnitLabel
+        if unit.isEmpty { return formattedNumericValue }
+        return "\(formattedNumericValue) \(unit)"
+    }
+
+    /// Unit label resolved from override or category default.
+    var resolvedUnitLabel: String {
+        if !unit.isEmpty { return unit }
+        return category.unitLabel
+    }
+
+    /// Absolute change value formatted (no arrow).
+    var formattedChangeValue: String? {
+        guard let change else { return nil }
+        return String(format: "%.1f", abs(change))
+    }
+
+    /// SF Symbol name for change direction.
+    var changeDirectionIcon: String? {
+        guard let change else { return nil }
+        return change > 0 ? "arrow.up.right" : "arrow.down.right"
+    }
+
+    /// Legacy combined format for backward compatibility.
     var formattedChange: String? {
         guard let change else { return nil }
         let arrow = change > 0 ? "\u{25B2}" : "\u{25BC}"
@@ -46,6 +76,7 @@ extension HealthMetric.Category {
         case .exercise: DS.Color.activity
         case .steps:    DS.Color.steps
         case .weight:   DS.Color.body
+        case .bmi:      DS.Color.body
         }
     }
 
@@ -57,6 +88,7 @@ extension HealthMetric.Category {
         case .exercise: "flame.fill"
         case .steps:    "figure.walk"
         case .weight:   "scalemass.fill"
+        case .bmi:      "figure.stand"
         }
     }
 
@@ -68,6 +100,7 @@ extension HealthMetric.Category {
         case .exercise: "Exercise"
         case .steps:    "Steps"
         case .weight:   "Weight"
+        case .bmi:      "BMI"
         }
     }
 
@@ -79,6 +112,7 @@ extension HealthMetric.Category {
         case .exercise: "min"
         case .steps:    "steps"
         case .weight:   "kg"
+        case .bmi:      ""
         }
     }
 }

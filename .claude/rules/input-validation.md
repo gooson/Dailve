@@ -29,6 +29,21 @@ private func validateInputs() -> ValidatedInput? {
 - 나눗셈 전: 분모 != 0 확인
 - 계산 결과: `.isNaN`, `.isInfinite` 체크 후 fallback
 
+## HealthKit 값 범위 검증
+
+HealthKit에서 읽은 값도 센서 오류, 수동 입력 오류 가능성이 있으므로 범위 검증 필수:
+
+| 데이터 | 범위 | 근거 |
+|--------|------|------|
+| Weight | 0-500 kg | 세계 기록 기반 |
+| BMI | 0-100 | 의학적 범위 |
+| Heart Rate | 20-300 bpm | 생리학적 범위 |
+| HRV (SDNN) | 0-500 ms | 센서 범위 |
+| Body Fat | 0-100 % | 물리적 범위 |
+| Steps | 0-200,000 | 일일 최대 추정 |
+
+**중요**: 동일 데이터의 모든 쿼리 경로에서 동일한 검증 수준을 유지할 것.
+
 ## CloudKit 고려사항
 
 잘못된 데이터는 CloudKit을 통해 전 디바이스에 전파되므로 **입력 시점에서 차단**이 필수.

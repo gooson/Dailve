@@ -4,25 +4,30 @@ import SwiftUI
 struct ConditionInsightSection: View {
     let status: ConditionScore.Status
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isRegular: Bool { sizeClass == .regular }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: isRegular ? DS.Spacing.md : DS.Spacing.sm) {
             Text("Today's Insight")
-                .font(.subheadline)
+                .font(isRegular ? .headline : .subheadline)
                 .fontWeight(.semibold)
 
             InlineCard {
-                HStack(alignment: .top, spacing: DS.Spacing.md) {
-                    Text(status.emoji)
-                        .font(.title2)
-                        .frame(width: 32)
+                HStack(alignment: .top, spacing: isRegular ? DS.Spacing.lg : DS.Spacing.md) {
+                    Image(systemName: status.iconName)
+                        .font(isRegular ? .title : .title2)
+                        .foregroundStyle(status.color)
+                        .frame(width: isRegular ? 36 : 32)
 
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         Text(interpretation)
-                            .font(.subheadline)
+                            .font(isRegular ? .body : .subheadline)
                             .fontWeight(.medium)
 
                         Text(guidance)
-                            .font(.caption)
+                            .font(isRegular ? .subheadline : .caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }

@@ -29,16 +29,8 @@ struct SleepStageChartView: View {
 
     // MARK: - Day Timeline
 
-    private var accessibilitySummary: String {
-        if period == .day {
-            guard !stages.isEmpty else { return "No data" }
-            let totalMinutes = stages.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) } / 60
-            return "Total \(totalMinutes.hoursMinutesFormatted)"
-        } else {
-            guard !dailyData.isEmpty else { return "No data" }
-            let avgMinutes = dailyData.map(\.total).reduce(0, +) / Double(dailyData.count) / 60
-            return "Average \(avgMinutes.hoursMinutesFormatted) per night"
-        }
+    private var stackedChartDescriptor: SleepChartAccessibility {
+        SleepChartAccessibility(title: "Sleep Duration", data: dailyData)
     }
 
     private var dayTimelineChart: some View {
@@ -68,7 +60,6 @@ struct SleepStageChartView: View {
         .drawingGroup()
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Sleep stages timeline, \(stages.count) stages")
-        .accessibilityValue(accessibilitySummary)
     }
 
     // MARK: - Stacked Bar Chart
@@ -113,9 +104,7 @@ struct SleepStageChartView: View {
             .chartXSelection(value: $selectedDate)
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Sleep duration chart, \(dailyData.count) days")
-            .accessibilityValue(accessibilitySummary)
+            .accessibilityChartDescriptor(stackedChartDescriptor)
         }
     }
 
