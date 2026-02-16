@@ -81,17 +81,12 @@ struct RangeBarChartView: View {
             .chartXSelection(value: $selectedDate)
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Resting heart rate chart, \(data.count) data points")
-            .accessibilityValue(accessibilitySummary)
+            .accessibilityChartDescriptor(chartDescriptor)
         }
     }
 
-    private var accessibilitySummary: String {
-        guard !data.isEmpty else { return "No data" }
-        let sum = data.reduce(0.0) { $0 + $1.average }
-        let avg = sum / Double(data.count)
-        return "Average \(String(format: "%.0f", avg)) bpm"
+    private var chartDescriptor: RangeChartAccessibility {
+        RangeChartAccessibility(title: "Resting Heart Rate", data: data, unitSuffix: "bpm")
     }
 
     // MARK: - Subviews

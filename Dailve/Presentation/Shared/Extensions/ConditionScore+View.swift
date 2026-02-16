@@ -10,4 +10,14 @@ extension ConditionScore.Status {
         case .warning:   DS.Color.scoreWarning
         }
     }
+
+    var iconName: String {
+        switch self {
+        case .excellent: "checkmark.circle.fill"
+        case .good:      "hand.thumbsup.fill"
+        case .fair:      "minus.circle.fill"
+        case .tired:     "moon.fill"
+        case .warning:   "exclamationmark.triangle.fill"
+        }
+    }
 }

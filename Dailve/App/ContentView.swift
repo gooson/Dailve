@@ -43,24 +43,42 @@ struct ContentView: View {
             .accessibilityIdentifier("sidebar-list")
             .navigationTitle("Dailve")
         } detail: {
-            switch selectedSection {
-            case .dashboard:
-                DashboardView()
-            case .exercise:
-                ActivityView()
-            case .sleep:
-                SleepView()
-            case .body:
-                BodyCompositionView()
-            case .none:
-                ContentUnavailableView(
-                    "Select a Section",
-                    systemImage: "heart.text.clipboard",
-                    description: Text("Choose a category from the sidebar.")
-                )
+            NavigationStack {
+                switch selectedSection {
+                case .dashboard:
+                    DashboardView()
+                case .exercise:
+                    ActivityView()
+                case .sleep:
+                    SleepView()
+                case .body:
+                    BodyCompositionView()
+                case .none:
+                    ContentUnavailableView(
+                        "Select a Section",
+                        systemImage: "heart.text.clipboard",
+                        description: Text("Choose a category from the sidebar.")
+                    )
+                }
             }
         }
-        .navigationSplitViewStyle(.balanced)
+        .navigationSplitViewStyle(.prominentDetail)
+        .keyboardShortcut(for: .dashboard, selection: $selectedSection)
+        .keyboardShortcut(for: .exercise, selection: $selectedSection)
+        .keyboardShortcut(for: .sleep, selection: $selectedSection)
+        .keyboardShortcut(for: .body, selection: $selectedSection)
+    }
+}
+
+// MARK: - Keyboard Shortcuts
+
+private extension View {
+    func keyboardShortcut(for section: AppSection, selection: Binding<AppSection?>) -> some View {
+        background {
+            Button("") { selection.wrappedValue = section }
+                .keyboardShortcut(KeyEquivalent(section.keyEquivalent), modifiers: .command)
+                .hidden()
+        }
     }
 }
 

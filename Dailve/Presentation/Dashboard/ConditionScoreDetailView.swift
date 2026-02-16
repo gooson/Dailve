@@ -10,9 +10,33 @@ struct ConditionScoreDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: DS.Spacing.xl) {
-                // Hero: Score ring + status
-                scoreHero
+            VStack(alignment: .leading, spacing: sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.xl) {
+                // Hero + Insight + Contributors
+                if sizeClass == .regular {
+                    // iPad: 2-column layout — ring left, insight+contributors right
+                    HStack(alignment: .top, spacing: DS.Spacing.xxl) {
+                        scoreHero
+                            .frame(maxWidth: .infinity)
+
+                        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                            ConditionInsightSection(status: score.status)
+
+                            if !score.contributions.isEmpty {
+                                ScoreContributorsView(contributions: score.contributions)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                } else {
+                    // iPhone: stacked layout
+                    scoreHero
+
+                    ConditionInsightSection(status: score.status)
+
+                    if !score.contributions.isEmpty {
+                        ScoreContributorsView(contributions: score.contributions)
+                    }
+                }
 
                 // Period picker
                 Picker("Period", selection: $viewModel.selectedPeriod) {
@@ -45,17 +69,27 @@ struct ConditionScoreDetailView: View {
                 }
                 .animation(DS.Animation.snappy, value: viewModel.selectedPeriod)
 
-                // Summary stats
-                if let summary = viewModel.summaryStats {
-                    scoreSummary(summary)
-                }
-
-                // Insight section
-                ConditionInsightSection(status: score.status)
-
-                // Highlights
-                if !viewModel.highlights.isEmpty {
-                    highlightsSection
+                // Summary stats + Highlights
+                if sizeClass == .regular {
+                    // iPad: side-by-side
+                    HStack(alignment: .top, spacing: DS.Spacing.lg) {
+                        if let summary = viewModel.summaryStats {
+                            scoreSummary(summary)
+                                .frame(maxWidth: .infinity)
+                        }
+                        if !viewModel.highlights.isEmpty {
+                            highlightsSection
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                } else {
+                    // iPhone: stacked
+                    if let summary = viewModel.summaryStats {
+                        scoreSummary(summary)
+                    }
+                    if !viewModel.highlights.isEmpty {
+                        highlightsSection
+                    }
                 }
 
                 // Explainer section
@@ -63,7 +97,7 @@ struct ConditionScoreDetailView: View {
                     ConditionExplainerSection()
                 }
             }
-            .padding()
+            .padding(sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.lg)
         }
         .navigationTitle("Condition Score")
         .navigationBarTitleDisplayMode(.large)
@@ -140,6 +174,9 @@ struct ConditionScoreDetailView: View {
 
     // MARK: - Subviews
 
+    private var ringSize: CGFloat { sizeClass == .regular ? 180 : 120 }
+    private var ringLineWidth: CGFloat { sizeClass == .regular ? 16 : 12 }
+
     private var scoreHero: some View {
         HStack {
             Spacer()
@@ -148,8 +185,8 @@ struct ConditionScoreDetailView: View {
                     ProgressRingView(
                         progress: Double(score.score) / 100.0,
                         ringColor: score.status.color,
-                        lineWidth: 12,
-                        size: 120
+                        lineWidth: ringLineWidth,
+                        size: ringSize
                     )
 
                     VStack(spacing: DS.Spacing.xxs) {
@@ -183,7 +220,9 @@ struct ConditionScoreDetailView: View {
 
                 HStack(spacing: DS.Spacing.lg) {
                     summaryItem(label: "Avg", value: String(format: "%.0f", summary.average))
+                    if sizeClass == .regular { Divider().frame(height: 24) }
                     summaryItem(label: "Min", value: String(format: "%.0f", summary.min))
+                    if sizeClass == .regular { Divider().frame(height: 24) }
                     summaryItem(label: "Max", value: String(format: "%.0f", summary.max))
 
                     if let change = summary.changePercentage {
@@ -209,16 +248,20 @@ struct ConditionScoreDetailView: View {
 
     private func changeBadge(_ change: Double) -> some View {
         let isPositive = change > 0
-        let arrow = isPositive ? "\u{25B2}" : "\u{25BC}"
+        let icon = isPositive ? "arrow.up.right" : "arrow.down.right"
         let color: Color = isPositive ? DS.Color.positive : DS.Color.negative
 
-        return Text("\(arrow) \(String(format: "%.1f", abs(change)))%")
-            .font(.caption2)
-            .fontWeight(.medium)
-            .foregroundStyle(color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.12), in: Capsule())
+        return HStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+            Text("\(String(format: "%.1f", abs(change)))%")
+                .font(.caption2)
+                .fontWeight(.medium)
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.12), in: Capsule())
     }
 
     private var highlightsSection: some View {
@@ -257,7 +300,7 @@ struct ConditionScoreDetailView: View {
     // MARK: - Helpers
 
     private var chartHeight: CGFloat {
-        sizeClass == .regular ? 300 : 250
+        sizeClass == .regular ? 360 : 250
     }
 
     private func highlightIcon(_ type: Highlight.HighlightType) -> String {

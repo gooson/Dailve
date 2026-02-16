@@ -19,13 +19,13 @@ struct HealthMetricTests {
     @Test("formattedValue formats correctly per category")
     func formattedValue() {
         let hrv = HealthMetric(id: "1", name: "HRV", value: 45.6, unit: "ms", change: nil, date: Date(), category: .hrv)
-        #expect(hrv.formattedValue == "46ms")
+        #expect(hrv.formattedValue == "46 ms")
 
         let sleep = HealthMetric(id: "2", name: "Sleep", value: 450, unit: "min", change: nil, date: Date(), category: .sleep)
         #expect(sleep.formattedValue == "7h 30m")
 
         let steps = HealthMetric(id: "3", name: "Steps", value: 8500, unit: "", change: nil, date: Date(), category: .steps)
-        #expect(steps.formattedValue == "8500")
+        #expect(steps.formattedValue == "8500 steps")
     }
 
     @Test("formattedChange returns nil when no change")

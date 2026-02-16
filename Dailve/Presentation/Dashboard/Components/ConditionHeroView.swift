@@ -8,17 +8,22 @@ struct ConditionHeroView: View {
     @State private var animatedScore: Int = 0
     @State private var isAppeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isRegular: Bool { sizeClass == .regular }
+    private var ringSize: CGFloat { isRegular ? 128 : 88 }
+    private var ringLineWidth: CGFloat { isRegular ? 14 : 10 }
 
     var body: some View {
         HeroCard(tintColor: score.status.color) {
-            HStack(spacing: DS.Spacing.xl) {
+            HStack(spacing: isRegular ? DS.Spacing.xxl : DS.Spacing.xl) {
                 // Compact ring
                 ZStack {
                     ProgressRingView(
                         progress: Double(score.score) / 100.0,
                         ringColor: score.status.color,
-                        lineWidth: 10,
-                        size: 88
+                        lineWidth: ringLineWidth,
+                        size: ringSize
                     )
 
                     Text("\(animatedScore)")
@@ -28,14 +33,15 @@ struct ConditionHeroView: View {
 
                 // Score info + sparkline
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                    // Status label
+                    // Status label with SF Symbol
                     HStack(spacing: DS.Spacing.xs) {
                         Text(score.status.label)
-                            .font(.headline)
+                            .font(isRegular ? .title3 : .headline)
                             .fontWeight(.semibold)
 
-                        Text(score.status.emoji)
+                        Image(systemName: score.status.iconName)
                             .font(.subheadline)
+                            .foregroundStyle(score.status.color)
                     }
 
                     // Guide message
@@ -47,7 +53,7 @@ struct ConditionHeroView: View {
                     if !recentScores.isEmpty {
                         HStack(spacing: DS.Spacing.xs) {
                             TrendChartView(scores: recentScores)
-                                .frame(height: 32)
+                                .frame(height: isRegular ? 56 : 44)
 
                             Text("7d")
                                 .font(.caption2)

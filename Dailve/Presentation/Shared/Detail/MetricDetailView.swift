@@ -10,7 +10,7 @@ struct MetricDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: DS.Spacing.xl) {
+            VStack(alignment: .leading, spacing: sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.xl) {
                 // Summary header
                 MetricSummaryHeader(
                     category: metric.category,
@@ -43,16 +43,30 @@ struct MetricDetailView: View {
                 }
                 .animation(DS.Animation.snappy, value: viewModel.selectedPeriod)
 
-                // Exercise period totals
-                if metric.category == .exercise, let totals = viewModel.exerciseTotals {
-                    ExerciseTotalsView(totals: totals, tintColor: metric.category.themeColor)
+                // Exercise totals + Highlights
+                if sizeClass == .regular {
+                    HStack(alignment: .top, spacing: DS.Spacing.lg) {
+                        if metric.category == .exercise, let totals = viewModel.exerciseTotals {
+                            ExerciseTotalsView(totals: totals, tintColor: metric.category.themeColor)
+                                .frame(maxWidth: .infinity)
+                        }
+                        if !viewModel.highlights.isEmpty {
+                            MetricHighlightsView(
+                                highlights: viewModel.highlights,
+                                category: metric.category
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                } else {
+                    if metric.category == .exercise, let totals = viewModel.exerciseTotals {
+                        ExerciseTotalsView(totals: totals, tintColor: metric.category.themeColor)
+                    }
+                    MetricHighlightsView(
+                        highlights: viewModel.highlights,
+                        category: metric.category
+                    )
                 }
-
-                // Highlights
-                MetricHighlightsView(
-                    highlights: viewModel.highlights,
-                    category: metric.category
-                )
 
                 // Show All Data
                 NavigationLink(value: AllDataDestination(category: metric.category)) {
@@ -71,7 +85,7 @@ struct MetricDetailView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding()
+            .padding(sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.lg)
         }
         .navigationTitle(metric.name)
         .navigationBarTitleDisplayMode(.large)
@@ -236,7 +250,7 @@ struct MetricDetailView: View {
     }
 
     private var chartHeight: CGFloat {
-        sizeClass == .regular ? 300 : 250
+        sizeClass == .regular ? 360 : 250
     }
 }
 

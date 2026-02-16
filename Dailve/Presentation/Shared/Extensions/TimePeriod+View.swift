@@ -10,23 +10,23 @@ extension TimePeriod {
         let formatter = DateFormatter()
         switch self {
         case .day:
-            formatter.dateFormat = "M/d (E)"
+            formatter.setLocalizedDateFormatFromTemplate("MdE")
             return formatter.string(from: range.start)
         case .week:
-            formatter.dateFormat = "M/d"
+            formatter.setLocalizedDateFormatFromTemplate("Md")
             let start = formatter.string(from: range.start)
             let end = formatter.string(from: range.end)
             return "\(start) – \(end)"
         case .month:
-            formatter.dateFormat = "yyyy.M"
+            formatter.setLocalizedDateFormatFromTemplate("yM")
             return formatter.string(from: range.start)
         case .sixMonths:
-            formatter.dateFormat = "yyyy.M"
+            formatter.setLocalizedDateFormatFromTemplate("yM")
             let start = formatter.string(from: range.start)
             let end = formatter.string(from: range.end)
             return "\(start) – \(end)"
         case .year:
-            formatter.dateFormat = "yyyy"
+            formatter.setLocalizedDateFormatFromTemplate("y")
             return formatter.string(from: range.start)
         }
     }
@@ -51,19 +51,19 @@ extension TimePeriod {
         let formatter = DateFormatter()
         switch self {
         case .day:
-            formatter.dateFormat = "M월 d일 (E)"
+            formatter.setLocalizedDateFormatFromTemplate("MMMdE")
             return formatter.string(from: scrollDate)
         case .week:
-            formatter.dateFormat = "M.d"
+            formatter.setLocalizedDateFormatFromTemplate("Md")
             return "\(formatter.string(from: scrollDate)) – \(formatter.string(from: end))"
         case .month:
-            formatter.dateFormat = "yyyy년 M월"
+            formatter.setLocalizedDateFormatFromTemplate("yMMMM")
             return formatter.string(from: scrollDate)
         case .sixMonths:
-            formatter.dateFormat = "yyyy.M"
+            formatter.setLocalizedDateFormatFromTemplate("yM")
             return "\(formatter.string(from: scrollDate)) – \(formatter.string(from: end))"
         case .year:
-            formatter.dateFormat = "yyyy년"
+            formatter.setLocalizedDateFormatFromTemplate("y")
             return formatter.string(from: scrollDate)
         }
     }

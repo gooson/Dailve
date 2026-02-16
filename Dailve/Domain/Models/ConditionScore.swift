@@ -4,6 +4,16 @@ struct ConditionScore: Sendable, Hashable {
     let score: Int
     let status: Status
     let date: Date
+    let contributions: [ScoreContribution]
+
+    static func == (lhs: ConditionScore, rhs: ConditionScore) -> Bool {
+        lhs.score == rhs.score && lhs.date == rhs.date
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(score)
+        hasher.combine(date)
+    }
 
     enum Status: String, Sendable, CaseIterable {
         case excellent
@@ -43,9 +53,10 @@ struct ConditionScore: Sendable, Hashable {
         }
     }
 
-    init(score: Int, date: Date = Date()) {
+    init(score: Int, date: Date = Date(), contributions: [ScoreContribution] = []) {
         self.score = max(0, min(100, score))
         self.date = date
+        self.contributions = contributions
         switch self.score {
         case 80...100: self.status = .excellent
         case 60...79: self.status = .good

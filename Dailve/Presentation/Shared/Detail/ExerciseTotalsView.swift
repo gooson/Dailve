@@ -5,15 +5,20 @@ struct ExerciseTotalsView: View {
     let totals: ExerciseTotals
     let tintColor: Color
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isRegular: Bool { sizeClass == .regular }
+    private var gridSpacing: CGFloat { isRegular ? DS.Spacing.lg : DS.Spacing.md }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: isRegular ? DS.Spacing.md : DS.Spacing.sm) {
             Text("Period Totals")
-                .font(.subheadline)
+                .font(isRegular ? .headline : .subheadline)
                 .fontWeight(.semibold)
 
             LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: DS.Spacing.md), count: 2),
-                spacing: DS.Spacing.md
+                columns: Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 2),
+                spacing: gridSpacing
             ) {
                 totalItem(
                     icon: "number",
@@ -50,26 +55,26 @@ struct ExerciseTotalsView: View {
     // MARK: - Subviews
 
     private func totalItem(icon: String, label: String, value: String) -> some View {
-        HStack(spacing: DS.Spacing.sm) {
+        HStack(spacing: isRegular ? DS.Spacing.md : DS.Spacing.sm) {
             Image(systemName: icon)
-                .font(.caption)
+                .font(isRegular ? .subheadline : .caption)
                 .foregroundStyle(tintColor)
-                .frame(width: 20)
+                .frame(width: isRegular ? 24 : 20)
 
             VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
                 Text(label)
-                    .font(.caption2)
+                    .font(isRegular ? .caption : .caption2)
                     .foregroundStyle(.tertiary)
                 Text(value)
-                    .font(.subheadline)
+                    .font(isRegular ? .body : .subheadline)
                     .fontWeight(.medium)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(DS.Spacing.md)
+        .padding(isRegular ? DS.Spacing.lg : DS.Spacing.md)
         .background {
-            RoundedRectangle(cornerRadius: DS.Radius.sm)
+            RoundedRectangle(cornerRadius: isRegular ? DS.Radius.md : DS.Radius.sm)
                 .fill(.thinMaterial)
         }
     }

@@ -2,51 +2,78 @@ import SwiftUI
 
 struct MetricCardView: View {
     let metric: HealthMetric
+    var sparklineData: [Double]?
+
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isRegular: Bool { sizeClass == .regular }
+    private var cardPadding: CGFloat { isRegular ? DS.Spacing.xxl : DS.Spacing.lg }
+    private var sparklineHeight: CGFloat { isRegular ? 44 : 28 }
+    private var valueFont: Font { isRegular ? .title : .title2 }
+    private var headerFont: Font { isRegular ? .subheadline : .caption }
+    private var cardSpacing: CGFloat { isRegular ? DS.Spacing.md : DS.Spacing.sm }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: cardSpacing) {
             // Header: icon + label + relative date
             HStack(spacing: DS.Spacing.xs) {
                 Image(systemName: metric.resolvedIconName)
-                    .font(.caption)
+                    .font(headerFont)
                     .foregroundStyle(metric.category.themeColor)
                 Text(metric.name)
-                    .font(.caption)
+                    .font(headerFont)
                     .foregroundStyle(.secondary)
 
                 if metric.isHistorical, let label = metric.date.relativeLabel {
                     Spacer()
                     Text(label)
-                        .font(.caption2)
+                        .font(isRegular ? .caption : .caption2)
                         .foregroundStyle(.tertiary)
                 }
             }
 
-            // Value + change badge
+            // Value (separated from unit) + change badge with SF Symbol
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(metric.formattedValue)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .fontDesign(.rounded)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(metric.formattedNumericValue)
+                        .font(valueFont)
+                        .fontWeight(.semibold)
+                        .fontDesign(.rounded)
 
-                if let change = metric.formattedChange {
-                    Text(change)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundStyle(changeColor)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            changeColor.opacity(0.12),
-                            in: Capsule()
-                        )
+                    let unitText = metric.resolvedUnitLabel
+                    if !unitText.isEmpty && metric.category != .sleep {
+                        Text(unitText)
+                            .font(isRegular ? .subheadline : .caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
+                if let icon = metric.changeDirectionIcon,
+                   let value = metric.formattedChangeValue {
+                    HStack(spacing: 2) {
+                        Image(systemName: icon)
+                            .font(.system(size: isRegular ? 11 : 9, weight: .bold))
+                        Text(value)
+                            .font(isRegular ? .caption : .caption2)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(changeColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(changeColor.opacity(0.12), in: Capsule())
+                }
+            }
+
+            // Mini sparkline (7-day trend)
+            if let data = sparklineData, data.count >= 2 {
+                MiniSparklineView(dataPoints: data, color: metric.category.themeColor)
+                    .frame(height: sparklineHeight)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(DS.Spacing.lg)
+        .padding(cardPadding)
         .background {
-            RoundedRectangle(cornerRadius: DS.Radius.md)
+            RoundedRectangle(cornerRadius: sizeClass == .regular ? DS.Radius.lg : DS.Radius.md)
                 .fill(.thinMaterial)
         }
         .accessibilityElement(children: .combine)

@@ -70,17 +70,12 @@ struct BarChartView: View {
             .chartXSelection(value: $selectedDate)
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(valueLabel) chart, \(data.count) data points")
-            .accessibilityValue(accessibilitySummary)
+            .accessibilityChartDescriptor(chartDescriptor)
         }
     }
 
-    private var accessibilitySummary: String {
-        guard !data.isEmpty else { return "No data" }
-        let sum = data.reduce(0.0) { $0 + $1.value }
-        let avg = sum / Double(data.count)
-        return "Average \(String(format: "%.0f", avg))\(unitSuffix)"
+    private var chartDescriptor: StandardChartAccessibility {
+        StandardChartAccessibility(title: valueLabel, data: data, unitSuffix: unitSuffix, valueFormat: "%.0f")
     }
 
     // MARK: - Subviews

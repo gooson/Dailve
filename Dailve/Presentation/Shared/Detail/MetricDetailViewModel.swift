@@ -16,7 +16,14 @@ final class MetricDetailViewModel {
         }
     }
     var scrollPosition: Date = .now {
-        didSet { invalidateScrollCache() }
+        didSet {
+            scrollDebounceTask?.cancel()
+            scrollDebounceTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { return }
+                invalidateScrollCache()
+            }
+        }
     }
     var showTrendLine: Bool = false
     var chartData: [ChartDataPoint] = [] {
@@ -161,6 +168,7 @@ final class MetricDetailViewModel {
 
     // MARK: - Private Reload Trigger
 
+    private var scrollDebounceTask: Task<Void, Never>?
     private var reloadTask: Task<Void, Never>?
 
     private func triggerReload() {

@@ -11,8 +11,10 @@ final class DashboardViewModel {
     var recentScores: [ConditionScore] = []
     var isLoading = false
     var errorMessage: String?
+    var lastUpdated: Date?
 
     private let healthKitManager: HealthKitManager
+    private var authorizationChecked = false
     private let hrvService: HRVQuerying
     private let sleepService: SleepQuerying
     private let workoutService: WorkoutQuerying
@@ -38,13 +40,16 @@ final class DashboardViewModel {
         isLoading = true
         errorMessage = nil
 
-        do {
-            try await healthKitManager.requestAuthorization()
-        } catch {
-            AppLogger.ui.error("HealthKit authorization failed: \(error.localizedDescription)")
-            errorMessage = error.localizedDescription
-            isLoading = false
-            return
+        if !authorizationChecked {
+            do {
+                try await healthKitManager.requestAuthorization()
+                authorizationChecked = true
+            } catch {
+                AppLogger.ui.error("HealthKit authorization failed: \(error.localizedDescription)")
+                errorMessage = error.localizedDescription
+                isLoading = false
+                return
+            }
         }
 
         // Each fetch is independent — one failure should not block others
@@ -64,6 +69,7 @@ final class DashboardViewModel {
         if let stepsMetric { allMetrics.append(stepsMetric) }
 
         sortedMetrics = allMetrics.sorted { $0.changeSignificance > $1.changeSignificance }
+        lastUpdated = Date()
         isLoading = false
     }
 

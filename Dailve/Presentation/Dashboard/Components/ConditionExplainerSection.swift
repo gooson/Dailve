@@ -3,6 +3,9 @@ import SwiftUI
 /// Expandable section explaining how the condition score is calculated.
 struct ConditionExplainerSection: View {
     @State private var isExpanded = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var isRegular: Bool { sizeClass == .regular }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -67,19 +70,19 @@ struct ConditionExplainerSection: View {
     }
 
     private func explainerItem(icon: String, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: DS.Spacing.md) {
+        HStack(alignment: .top, spacing: isRegular ? DS.Spacing.lg : DS.Spacing.md) {
             Image(systemName: icon)
-                .font(.body)
+                .font(isRegular ? .title3 : .body)
                 .foregroundStyle(DS.Color.hrv)
-                .frame(width: 24, alignment: .center)
+                .frame(width: isRegular ? 28 : 24, alignment: .center)
 
             VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
                 Text(title)
-                    .font(.caption)
+                    .font(isRegular ? .subheadline : .caption)
                     .fontWeight(.semibold)
 
                 Text(description)
-                    .font(.caption)
+                    .font(isRegular ? .subheadline : .caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

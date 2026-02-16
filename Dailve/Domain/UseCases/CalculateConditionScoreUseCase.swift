@@ -22,6 +22,7 @@ struct CalculateConditionScoreUseCase: ConditionScoreCalculating, Sendable {
     struct Output: Sendable {
         let score: ConditionScore?
         let baselineStatus: BaselineStatus
+        let contributions: [ScoreContribution]
     }
 
     func execute(input: Input) -> Output {
@@ -33,13 +34,13 @@ struct CalculateConditionScoreUseCase: ConditionScoreCalculating, Sendable {
 
         guard baselineStatus.isReady,
               let todayAverage = dailyAverages.first else {
-            return Output(score: nil, baselineStatus: baselineStatus)
+            return Output(score: nil, baselineStatus: baselineStatus, contributions: [])
         }
 
         // Guard against log(0) and invalid values
         let validAverages = dailyAverages.filter { $0.value > 0 }
         guard !validAverages.isEmpty, todayAverage.value > 0 else {
-            return Output(score: nil, baselineStatus: baselineStatus)
+            return Output(score: nil, baselineStatus: baselineStatus, contributions: [])
         }
 
         let lnValues = validAverages.map { log($0.value) }
@@ -51,7 +52,7 @@ struct CalculateConditionScoreUseCase: ConditionScoreCalculating, Sendable {
             .reduce(0, +) / Double(lnValues.count)
 
         guard !variance.isNaN && !variance.isInfinite else {
-            return Output(score: nil, baselineStatus: baselineStatus)
+            return Output(score: nil, baselineStatus: baselineStatus, contributions: [])
         }
 
         let stdDev = sqrt(variance)
@@ -59,6 +60,24 @@ struct CalculateConditionScoreUseCase: ConditionScoreCalculating, Sendable {
 
         let zScore = (todayLn - baseline) / normalRange
         var rawScore = baselineScore + (zScore * zScoreMultiplier)
+
+        // Build contributions
+        var contributions: [ScoreContribution] = []
+
+        // HRV contribution based on z-score
+        let hrvImpact: ScoreContribution.Impact
+        let hrvDetail: String
+        if zScore > 0.5 {
+            hrvImpact = .positive
+            hrvDetail = "Above baseline"
+        } else if zScore < -0.5 {
+            hrvImpact = .negative
+            hrvDetail = "Below baseline"
+        } else {
+            hrvImpact = .neutral
+            hrvDetail = "Within normal range"
+        }
+        contributions.append(ScoreContribution(factor: .hrv, impact: hrvImpact, detail: hrvDetail))
 
         // RHR correction: rising RHR + falling HRV = stronger fatigue signal
         if let todayRHR = input.todayRHR, let yesterdayRHR = input.yesterdayRHR {
@@ -68,12 +87,27 @@ struct CalculateConditionScoreUseCase: ConditionScoreCalculating, Sendable {
             } else if rhrChange < -rhrChangeThreshold && zScore > 0 {
                 rawScore += abs(rhrChange)
             }
+
+            // RHR contribution based on change
+            let rhrImpact: ScoreContribution.Impact
+            let rhrDetail: String
+            if rhrChange < -rhrChangeThreshold {
+                rhrImpact = .positive
+                rhrDetail = "Decreased from yesterday"
+            } else if rhrChange > rhrChangeThreshold {
+                rhrImpact = .negative
+                rhrDetail = "Increased from yesterday"
+            } else {
+                rhrImpact = .neutral
+                rhrDetail = "Stable"
+            }
+            contributions.append(ScoreContribution(factor: .rhr, impact: rhrImpact, detail: rhrDetail))
         }
 
         let clampedScore = Int(max(0, min(100, rawScore)))
-        let score = ConditionScore(score: clampedScore, date: Date())
+        let score = ConditionScore(score: clampedScore, date: Date(), contributions: contributions)
 
-        return Output(score: score, baselineStatus: baselineStatus)
+        return Output(score: score, baselineStatus: baselineStatus, contributions: contributions)
     }
 
     // MARK: - Private
