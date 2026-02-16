@@ -18,6 +18,7 @@ actor HealthKitManager {
         HKQuantityType(.bodyFatPercentage),
         HKQuantityType(.leanBodyMass),
         HKQuantityType(.height),
+        HKQuantityType(.bodyMassIndex),
     ]
 
     var isAvailable: Bool {

@@ -246,6 +246,16 @@ struct MetricDetailView: View {
                 trendLine: trend,
                 scrollPosition: $viewModel.scrollPosition
             )
+
+        case .bmi:
+            AreaLineChartView(
+                data: viewModel.chartData,
+                period: viewModel.selectedPeriod,
+                tintColor: DS.Color.body,
+                unitSuffix: "",
+                trendLine: trend,
+                scrollPosition: $viewModel.scrollPosition
+            )
         }
     }
 

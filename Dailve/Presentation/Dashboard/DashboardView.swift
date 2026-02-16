@@ -54,9 +54,10 @@ struct DashboardView: View {
                         errorBanner(error)
                     }
 
-                    // Health Signals section (HRV, RHR)
-                    let healthSignals = viewModel.sortedMetrics.filter { $0.category == .hrv || $0.category == .rhr }
-                    let activityMetrics = viewModel.sortedMetrics.filter { $0.category != .hrv && $0.category != .rhr }
+                    // Health Signals section (HRV, RHR, Weight, BMI)
+                    let healthCategories: Set<HealthMetric.Category> = [.hrv, .rhr, .weight, .bmi]
+                    let healthSignals = viewModel.sortedMetrics.filter { healthCategories.contains($0.category) }
+                    let activityMetrics = viewModel.sortedMetrics.filter { !healthCategories.contains($0.category) }
 
                     if !healthSignals.isEmpty {
                         Section {

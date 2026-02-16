@@ -74,6 +74,7 @@ struct AllDataView: View {
         case .exercise: "\(String(format: "%.0f", value)) min"
         case .steps:    "\(String(format: "%.0f", value))"
         case .weight:   "\(String(format: "%.1f", value)) kg"
+        case .bmi:      "\(String(format: "%.1f", value))"
         }
     }
 }

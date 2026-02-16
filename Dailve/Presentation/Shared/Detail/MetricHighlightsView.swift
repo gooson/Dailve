@@ -71,6 +71,7 @@ struct MetricHighlightsView: View {
         case .exercise: String(format: "%.0f min", value)
         case .steps:    String(format: "%.0f", value)
         case .weight:   String(format: "%.1f kg", value)
+        case .bmi:      String(format: "%.1f", value)
         }
     }
 }

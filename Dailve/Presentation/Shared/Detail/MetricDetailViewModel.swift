@@ -96,6 +96,7 @@ final class MetricDetailViewModel {
             case .steps:    try await loadStepsData()
             case .exercise: try await loadExerciseData()
             case .weight:   try await loadWeightData()
+            case .bmi:      try await loadBMIData()
             }
             guard !Task.isCancelled else {
                 isLoading = false
@@ -406,6 +407,37 @@ final class MetricDetailViewModel {
             .sorted { $0.date < $1.date }
 
         // Weight uses average aggregation for longer periods
+        if selectedPeriod == .sixMonths || selectedPeriod == .year {
+            chartData = HealthDataAggregator.aggregateByAverage(
+                raw, unit: selectedPeriod.aggregationUnit
+            )
+        } else {
+            chartData = raw
+        }
+
+        summaryStats = HealthDataAggregator.computeSummary(
+            from: currentPeriodValues(),
+            previousPeriodValues: previous.map(\.value)
+        )
+    }
+
+    // MARK: - BMI
+
+    private func loadBMIData() async throws {
+        let range = extendedRange
+
+        async let currentSamples = bodyService.fetchBMI(start: range.start, end: range.end)
+        let prevRange = HealthDataAggregator.previousPeriodRange(for: selectedPeriod, offset: 0)
+        async let prevSamples = bodyService.fetchBMI(start: prevRange.start, end: prevRange.end)
+
+        let current = try await currentSamples
+        let previous = try await prevSamples
+
+        let raw = current
+            .map { ChartDataPoint(date: $0.date, value: $0.value) }
+            .sorted { $0.date < $1.date }
+
+        // BMI uses average aggregation for longer periods
         if selectedPeriod == .sixMonths || selectedPeriod == .year {
             chartData = HealthDataAggregator.aggregateByAverage(
                 raw, unit: selectedPeriod.aggregationUnit

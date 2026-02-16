@@ -171,6 +171,14 @@ final class AllDataViewModel {
                 .filter { $0.date <= cutoff }
                 .map { ChartDataPoint(date: $0.date, value: $0.value) }
                 .sorted(by: { $0.date > $1.date })
+
+        case .bmi:
+            let start = Calendar.current.date(byAdding: .day, value: -fromDaysAgo, to: Date()) ?? Date()
+            let cutoff = Calendar.current.date(byAdding: .day, value: -toDaysAgo, to: Date()) ?? Date()
+            let samples = try await bodyService.fetchBMI(start: start, end: cutoff)
+            return samples
+                .map { ChartDataPoint(date: $0.date, value: $0.value) }
+                .sorted(by: { $0.date > $1.date })
         }
     }
 }

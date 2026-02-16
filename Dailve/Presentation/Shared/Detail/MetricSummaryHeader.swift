@@ -122,6 +122,7 @@ struct MetricSummaryHeader: View {
         case .exercise: String(format: "%.0f", value)
         case .steps:    String(format: "%.0f", value)
         case .weight:   String(format: "%.1f", value)
+        case .bmi:      String(format: "%.1f", value)
         }
     }
 

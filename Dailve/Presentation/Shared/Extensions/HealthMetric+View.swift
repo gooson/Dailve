@@ -20,6 +20,8 @@ extension HealthMetric {
             return String(format: "%.0f", value)
         case .weight:
             return String(format: "%.1f", value)
+        case .bmi:
+            return String(format: "%.1f", value)
         }
     }
 
@@ -74,6 +76,7 @@ extension HealthMetric.Category {
         case .exercise: DS.Color.activity
         case .steps:    DS.Color.steps
         case .weight:   DS.Color.body
+        case .bmi:      DS.Color.body
         }
     }
 
@@ -85,6 +88,7 @@ extension HealthMetric.Category {
         case .exercise: "flame.fill"
         case .steps:    "figure.walk"
         case .weight:   "scalemass.fill"
+        case .bmi:      "figure.stand"
         }
     }
 
@@ -96,6 +100,7 @@ extension HealthMetric.Category {
         case .exercise: "Exercise"
         case .steps:    "Steps"
         case .weight:   "Weight"
+        case .bmi:      "BMI"
         }
     }
 
@@ -107,6 +112,7 @@ extension HealthMetric.Category {
         case .exercise: "min"
         case .steps:    "steps"
         case .weight:   "kg"
+        case .bmi:      ""
         }
     }
 }

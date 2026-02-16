@@ -19,6 +19,7 @@ final class DashboardViewModel {
     private let sleepService: SleepQuerying
     private let workoutService: WorkoutQuerying
     private let stepsService: StepsQuerying
+    private let bodyService: BodyCompositionQuerying
     private let scoreUseCase = CalculateConditionScoreUseCase()
 
     init(
@@ -26,13 +27,15 @@ final class DashboardViewModel {
         hrvService: HRVQuerying? = nil,
         sleepService: SleepQuerying? = nil,
         workoutService: WorkoutQuerying? = nil,
-        stepsService: StepsQuerying? = nil
+        stepsService: StepsQuerying? = nil,
+        bodyService: BodyCompositionQuerying? = nil
     ) {
         self.healthKitManager = healthKitManager
         self.hrvService = hrvService ?? HRVQueryService(manager: healthKitManager)
         self.sleepService = sleepService ?? SleepQueryService(manager: healthKitManager)
         self.workoutService = workoutService ?? WorkoutQueryService(manager: healthKitManager)
         self.stepsService = stepsService ?? StepsQueryService(manager: healthKitManager)
+        self.bodyService = bodyService ?? BodyCompositionQueryService(manager: healthKitManager)
     }
 
     func loadData() async {
@@ -52,14 +55,16 @@ final class DashboardViewModel {
             }
         }
 
-        // Each fetch is independent — one failure should not block others
+        // Each fetch is independent — one failure should not block others (6 parallel)
         async let hrvTask = safeHRVFetch()
         async let sleepTask = safeSleepFetch()
         async let exerciseTask = safeExerciseFetch()
         async let stepsTask = safeStepsFetch()
+        async let weightTask = safeWeightFetch()
+        async let bmiTask = safeBMIFetch()
 
-        let (hrvMetrics, sleepMetric, exerciseMetrics, stepsMetric) = await (
-            hrvTask, sleepTask, exerciseTask, stepsTask
+        let (hrvMetrics, sleepMetric, exerciseMetrics, stepsMetric, weightMetric, bmiMetric) = await (
+            hrvTask, sleepTask, exerciseTask, stepsTask, weightTask, bmiTask
         )
 
         var allMetrics: [HealthMetric] = []
@@ -67,6 +72,8 @@ final class DashboardViewModel {
         if let sleepMetric { allMetrics.append(sleepMetric) }
         allMetrics.append(contentsOf: exerciseMetrics)
         if let stepsMetric { allMetrics.append(stepsMetric) }
+        if let weightMetric { allMetrics.append(weightMetric) }
+        if let bmiMetric { allMetrics.append(bmiMetric) }
 
         sortedMetrics = allMetrics.sorted { $0.changeSignificance > $1.changeSignificance }
         lastUpdated = Date()
@@ -101,6 +108,22 @@ final class DashboardViewModel {
         do { return try await fetchStepsData() }
         catch {
             AppLogger.ui.error("Steps fetch failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func safeWeightFetch() async -> HealthMetric? {
+        do { return try await fetchWeightData() }
+        catch {
+            AppLogger.ui.error("Weight fetch failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func safeBMIFetch() async -> HealthMetric? {
+        do { return try await fetchBMIData() }
+        catch {
+            AppLogger.ui.error("BMI fetch failed: \(error.localizedDescription)")
             return nil
         }
     }
@@ -365,6 +388,89 @@ final class DashboardViewModel {
         }
 
         return nil
+    }
+
+    private func fetchWeightData() async throws -> HealthMetric? {
+        let calendar = Calendar.current
+        let today = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+
+        let todayStart = calendar.startOfDay(for: today)
+        guard let todayEnd = calendar.date(byAdding: .day, value: 1, to: todayStart) else { return nil }
+
+        let todaySamples = try await bodyService.fetchWeight(start: todayStart, end: todayEnd)
+
+        let effectiveWeight: Double
+        let weightDate: Date
+        let isHistorical: Bool
+        if let latest = todaySamples.first {
+            effectiveWeight = latest.value
+            weightDate = today
+            isHistorical = false
+        } else if let latest = try await bodyService.fetchLatestWeight(withinDays: 30) {
+            effectiveWeight = latest.value
+            weightDate = latest.date
+            isHistorical = true
+        } else {
+            return nil
+        }
+
+        // Yesterday's weight for change calculation
+        let yesterdayStart = calendar.startOfDay(for: yesterday)
+        guard let yesterdayEnd = calendar.date(byAdding: .day, value: 1, to: yesterdayStart) else {
+            return HealthMetric(
+                id: "weight", name: "Weight", value: effectiveWeight, unit: "kg",
+                change: nil, date: weightDate, category: .weight, isHistorical: isHistorical
+            )
+        }
+        let yesterdaySamples = try await bodyService.fetchWeight(start: yesterdayStart, end: yesterdayEnd)
+        let change = yesterdaySamples.first.map { effectiveWeight - $0.value }
+
+        return HealthMetric(
+            id: "weight",
+            name: "Weight",
+            value: effectiveWeight,
+            unit: "kg",
+            change: change,
+            date: weightDate,
+            category: .weight,
+            isHistorical: isHistorical
+        )
+    }
+
+    private func fetchBMIData() async throws -> HealthMetric? {
+        let calendar = Calendar.current
+        let today = Date()
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+
+        let effectiveBMI: Double
+        let bmiDate: Date
+        let isHistorical: Bool
+        if let todayBMI = try await bodyService.fetchBMI(for: today), todayBMI > 0 {
+            effectiveBMI = todayBMI
+            bmiDate = today
+            isHistorical = false
+        } else if let latest = try await bodyService.fetchLatestBMI(withinDays: 30) {
+            effectiveBMI = latest.value
+            bmiDate = latest.date
+            isHistorical = true
+        } else {
+            return nil
+        }
+
+        let yesterdayBMI = try await bodyService.fetchBMI(for: yesterday)
+        let change = yesterdayBMI.map { effectiveBMI - $0 }
+
+        return HealthMetric(
+            id: "bmi",
+            name: "BMI",
+            value: effectiveBMI,
+            unit: "",
+            change: change,
+            date: bmiDate,
+            category: .bmi,
+            isHistorical: isHistorical
+        )
     }
 
     private func buildRecentScores(from samples: [HRVSample]) -> [ConditionScore] {
