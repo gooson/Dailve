@@ -1,6 +1,6 @@
 import Foundation
 
-struct HealthMetric: Identifiable, Sendable {
+struct HealthMetric: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let value: Double
@@ -9,6 +9,7 @@ struct HealthMetric: Identifiable, Sendable {
     let date: Date
     let category: Category
     var isHistorical: Bool = false
+    var iconOverride: String? = nil
 
     enum Category: String, Sendable, CaseIterable {
         case hrv

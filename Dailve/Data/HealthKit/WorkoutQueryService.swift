@@ -2,6 +2,7 @@ import HealthKit
 
 protocol WorkoutQuerying: Sendable {
     func fetchWorkouts(days: Int) async throws -> [WorkoutSummary]
+    func fetchWorkouts(start: Date, end: Date) async throws -> [WorkoutSummary]
 }
 
 struct WorkoutQueryService: WorkoutQuerying, Sendable {
@@ -22,6 +23,34 @@ struct WorkoutQueryService: WorkoutQuerying, Sendable {
         let predicate = HKQuery.predicateForSamples(
             withStart: startDate,
             end: endDate,
+            options: .strictStartDate
+        )
+
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.workout(predicate)],
+            sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)]
+        )
+
+        let workouts = try await manager.execute(descriptor)
+
+        return workouts.map { workout in
+            WorkoutSummary(
+                id: workout.uuid.uuidString,
+                type: workoutTypeName(workout.workoutActivityType),
+                duration: workout.duration,
+                calories: workout.totalEnergyBurned?.doubleValue(for: HKUnit.kilocalorie()),
+                distance: workout.totalDistance?.doubleValue(for: HKUnit.meter()),
+                date: workout.startDate
+            )
+        }
+    }
+
+    func fetchWorkouts(start: Date, end: Date) async throws -> [WorkoutSummary] {
+        try await manager.ensureNotDenied(for: HKObjectType.workoutType())
+
+        let predicate = HKQuery.predicateForSamples(
+            withStart: start,
+            end: end,
             options: .strictStartDate
         )
 

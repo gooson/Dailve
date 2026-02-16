@@ -71,6 +71,17 @@ actor HealthKitManager {
             throw HealthKitError.queryFailed(error.localizedDescription)
         }
     }
+
+    func executeStatisticsCollection(
+        _ query: sending HKStatisticsCollectionQueryDescriptor
+    ) async throws -> HKStatisticsCollection {
+        do {
+            return try await query.result(for: store)
+        } catch {
+            logger.error("HK statistics collection query failed: \(error.localizedDescription)")
+            throw HealthKitError.queryFailed(error.localizedDescription)
+        }
+    }
 }
 
 enum HealthKitError: Error, LocalizedError {

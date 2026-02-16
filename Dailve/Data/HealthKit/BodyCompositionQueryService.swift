@@ -9,6 +9,7 @@ protocol BodyCompositionQuerying: Sendable {
     func fetchWeight(days: Int) async throws -> [BodyCompositionSample]
     func fetchBodyFat(days: Int) async throws -> [BodyCompositionSample]
     func fetchLeanBodyMass(days: Int) async throws -> [BodyCompositionSample]
+    func fetchWeight(start: Date, end: Date) async throws -> [BodyCompositionSample]
 }
 
 struct BodyCompositionQueryService: BodyCompositionQuerying, Sendable {
@@ -43,6 +44,15 @@ struct BodyCompositionQueryService: BodyCompositionQuerying, Sendable {
         )
     }
 
+    func fetchWeight(start: Date, end: Date) async throws -> [BodyCompositionSample] {
+        try await fetchQuantitySamples(
+            type: HKQuantityType(.bodyMass),
+            unit: .gramUnit(with: .kilo),
+            start: start,
+            end: end
+        )
+    }
+
     // MARK: - Private
 
     private func fetchQuantitySamples(
@@ -51,16 +61,28 @@ struct BodyCompositionQueryService: BodyCompositionQuerying, Sendable {
         days: Int,
         valueTransform: @Sendable (Double) -> Double = { $0 }
     ) async throws -> [BodyCompositionSample] {
-        try await manager.ensureNotDenied(for: type)
         let calendar = Calendar.current
         let endDate = Date()
         guard let startDate = calendar.date(byAdding: .day, value: -days, to: endDate) else {
             return []
         }
+        return try await fetchQuantitySamples(
+            type: type, unit: unit, start: startDate, end: endDate, valueTransform: valueTransform
+        )
+    }
+
+    private func fetchQuantitySamples(
+        type: HKQuantityType,
+        unit: HKUnit,
+        start: Date,
+        end: Date,
+        valueTransform: @Sendable (Double) -> Double = { $0 }
+    ) async throws -> [BodyCompositionSample] {
+        try await manager.ensureNotDenied(for: type)
 
         let predicate = HKQuery.predicateForSamples(
-            withStart: startDate,
-            end: endDate,
+            withStart: start,
+            end: end,
             options: .strictStartDate
         )
 

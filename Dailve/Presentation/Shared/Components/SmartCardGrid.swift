@@ -16,15 +16,30 @@ struct SmartCardGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: DS.Spacing.md) {
             ForEach(Array(metrics.enumerated()), id: \.element.id) { index, metric in
-                MetricCardView(metric: metric)
-                    .transition(
-                        .asymmetric(
-                            insertion: .opacity
-                                .combined(with: .offset(y: 8))
-                                .animation(DS.Animation.standard.delay(Double(index) * 0.05)),
-                            removal: .opacity
-                        )
+                NavigationLink(value: metric) {
+                    MetricCardView(metric: metric)
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    NavigationLink(value: metric) {
+                        Label("View Trend", systemImage: "chart.line.uptrend.xyaxis")
+                    }
+                    NavigationLink(value: AllDataDestination(category: metric.category)) {
+                        Label("Show All Data", systemImage: "list.bullet")
+                    }
+                } preview: {
+                    MetricCardView(metric: metric)
+                        .padding()
+                        .frame(width: 240)
+                }
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity
+                            .combined(with: .offset(y: 8))
+                            .animation(DS.Animation.standard.delay(Double(index) * 0.05)),
+                        removal: .opacity
                     )
+                )
             }
         }
         .animation(DS.Animation.standard, value: metrics.map(\.id))

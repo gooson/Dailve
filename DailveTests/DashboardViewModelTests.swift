@@ -18,6 +18,8 @@ private struct MockHRVService: HRVQuerying {
         return nil
     }
     func fetchLatestRestingHeartRate(withinDays days: Int) async throws -> (value: Double, date: Date)? { latestRHR }
+    func fetchHRVCollection(start: Date, end: Date, interval: DateComponents) async throws -> [(date: Date, average: Double)] { [] }
+    func fetchRHRCollection(start: Date, end: Date, interval: DateComponents) async throws -> [(date: Date, min: Double, max: Double, average: Double)] { [] }
 }
 
 private struct MockSleepService: SleepQuerying {
@@ -32,11 +34,13 @@ private struct MockSleepService: SleepQuerying {
         return []
     }
     func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)? { latestStages }
+    func fetchDailySleepDurations(start: Date, end: Date) async throws -> [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])] { [] }
 }
 
 private struct MockWorkoutService: WorkoutQuerying {
     var workouts: [WorkoutSummary] = []
     func fetchWorkouts(days: Int) async throws -> [WorkoutSummary] { workouts }
+    func fetchWorkouts(start: Date, end: Date) async throws -> [WorkoutSummary] { workouts }
 }
 
 private struct MockStepsService: StepsQuerying {
@@ -51,6 +55,7 @@ private struct MockStepsService: StepsQuerying {
         return nil
     }
     func fetchLatestSteps(withinDays days: Int) async throws -> (value: Double, date: Date)? { latestSteps }
+    func fetchStepsCollection(start: Date, end: Date, interval: DateComponents) async throws -> [(date: Date, sum: Double)] { [] }
 }
 
 // MARK: - Tests
