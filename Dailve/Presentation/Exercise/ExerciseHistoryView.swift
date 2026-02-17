@@ -4,9 +4,11 @@ import Charts
 
 struct ExerciseHistoryView: View {
     @State private var viewModel: ExerciseHistoryViewModel
+    @State private var oneRMAnalysis: OneRMAnalysis?
     @AppStorage(WeightUnit.storageKey) private var weightUnitRaw = WeightUnit.kg.rawValue
 
     @Query private var exerciseRecords: [ExerciseRecord]
+    private let oneRMService = OneRMEstimationService()
 
     private var weightUnit: WeightUnit {
         WeightUnit(rawValue: weightUnitRaw) ?? .kg
@@ -27,6 +29,9 @@ struct ExerciseHistoryView: View {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 metricPicker
                 chartSection
+                if let analysis = oneRMAnalysis {
+                    OneRMAnalysisSection(analysis: analysis)
+                }
                 statsCards
                 sessionHistory
             }
@@ -36,9 +41,11 @@ struct ExerciseHistoryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             viewModel.loadHistory(from: exerciseRecords)
+            updateOneRMAnalysis()
         }
         .onChange(of: exerciseRecords) { _, newValue in
             viewModel.loadHistory(from: newValue)
+            updateOneRMAnalysis()
         }
     }
 
@@ -262,6 +269,22 @@ struct ExerciseHistoryView: View {
         }
         .padding(DS.Spacing.md)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+
+    // MARK: - 1RM
+
+    private func updateOneRMAnalysis() {
+        let defID = viewModel.exerciseDefinitionID
+        let matching = exerciseRecords.filter { $0.exerciseDefinitionID == defID }
+        let inputs = matching.map { record in
+            OneRMSessionInput(
+                date: record.date,
+                sets: record.completedSets.map { set in
+                    OneRMSetInput(weight: set.weight, reps: set.reps)
+                }
+            )
+        }
+        oneRMAnalysis = oneRMService.analyze(sessions: inputs)
     }
 
     // MARK: - Formatting
