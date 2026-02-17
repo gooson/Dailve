@@ -7,10 +7,12 @@ struct ExerciseView: View {
     @State private var selectedExercise: ExerciseDefinition?
     @State private var pendingDraft: WorkoutSessionDraft?
     @State private var showingTemplates = false
+    @State private var workoutSuggestion: WorkoutSuggestion?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExerciseRecord.date, order: .reverse) private var manualRecords: [ExerciseRecord]
 
     private let library: ExerciseLibraryQuerying = ExerciseLibraryService.shared
+    private let recommendationService: WorkoutRecommending = WorkoutRecommendationService()
 
     var body: some View {
         Group {
@@ -30,6 +32,16 @@ struct ExerciseView: View {
                     // Draft recovery banner
                     if let draft = pendingDraft {
                         draftBanner(draft)
+                    }
+
+                    // AI workout suggestion
+                    if let suggestion = workoutSuggestion, !suggestion.exercises.isEmpty {
+                        Section {
+                            SuggestedWorkoutCard(suggestion: suggestion) { exercise in
+                                selectedExercise = exercise
+                            }
+                            .listRowInsets(EdgeInsets())
+                        }
                     }
 
                     ForEach(viewModel.allExercises) { item in
@@ -90,10 +102,12 @@ struct ExerciseView: View {
         .task {
             pendingDraft = WorkoutSessionDraft.load()
             viewModel.manualRecords = manualRecords
+            updateSuggestion()
             await viewModel.loadHealthKitWorkouts()
         }
         .onChange(of: manualRecords) { _, newValue in
             viewModel.manualRecords = newValue
+            updateSuggestion()
         }
         .navigationTitle("Exercise")
     }
@@ -118,6 +132,19 @@ struct ExerciseView: View {
             )
             selectedExercise = definition
         }
+    }
+
+    private func updateSuggestion() {
+        let snapshots = manualRecords.map { record in
+            ExerciseRecordSnapshot(
+                date: record.date,
+                exerciseDefinitionID: record.exerciseDefinitionID,
+                primaryMuscles: record.primaryMuscles,
+                secondaryMuscles: record.secondaryMuscles,
+                completedSetCount: record.completedSets.count
+            )
+        }
+        workoutSuggestion = recommendationService.recommend(from: snapshots, library: library)
     }
 
     private var recentExerciseIDs: [String] {
