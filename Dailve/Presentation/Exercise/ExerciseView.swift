@@ -51,7 +51,7 @@ struct ExerciseView: View {
                             NavigationLink {
                                 ExerciseHistoryView(
                                     exerciseDefinitionID: defID,
-                                    exerciseName: item.type
+                                    exerciseName: item.localizedType ?? item.type
                                 )
                             } label: {
                                 ExerciseRowView(item: item)
@@ -236,13 +236,18 @@ private struct ExerciseRowView: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(item.type)
+                    Text(item.localizedType ?? item.type)
                         .font(.headline)
                     if item.source == .healthKit {
                         Image(systemName: "heart.fill")
                             .font(.caption2)
                             .foregroundStyle(.red)
                     }
+                }
+                if let localized = item.localizedType, localized != item.type {
+                    Text(item.type)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
 
                 Text(item.formattedDuration)

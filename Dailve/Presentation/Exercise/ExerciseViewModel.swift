@@ -10,9 +10,11 @@ final class ExerciseViewModel {
     var errorMessage: String?
 
     private let workoutService: WorkoutQuerying
+    private let exerciseLibrary: ExerciseLibraryQuerying
 
-    init(workoutService: WorkoutQuerying? = nil) {
+    init(workoutService: WorkoutQuerying? = nil, exerciseLibrary: ExerciseLibraryQuerying? = nil) {
         self.workoutService = workoutService ?? WorkoutQueryService(manager: .shared)
+        self.exerciseLibrary = exerciseLibrary ?? ExerciseLibraryService.shared
     }
 
     private(set) var allExercises: [ExerciseListItem] = []
@@ -34,9 +36,13 @@ final class ExerciseViewModel {
         }
 
         for record in manualRecords {
+            let localizedName: String? = record.exerciseDefinitionID.flatMap {
+                exerciseLibrary.exercise(byID: $0)?.localizedName
+            }
             items.append(ExerciseListItem(
                 id: record.id.uuidString,
                 type: record.exerciseType,
+                localizedType: localizedName,
                 duration: record.duration,
                 calories: record.bestCalories,
                 distance: record.distance,
@@ -66,6 +72,7 @@ final class ExerciseViewModel {
 struct ExerciseListItem: Identifiable {
     let id: String
     let type: String
+    let localizedType: String?
     let duration: TimeInterval
     let calories: Double?
     let distance: Double?
@@ -75,13 +82,15 @@ struct ExerciseListItem: Identifiable {
     let exerciseDefinitionID: String?
 
     init(
-        id: String, type: String, duration: TimeInterval,
+        id: String, type: String, localizedType: String? = nil,
+        duration: TimeInterval,
         calories: Double?, distance: Double?, date: Date,
         source: Source, completedSets: [WorkoutSet] = [],
         exerciseDefinitionID: String? = nil
     ) {
         self.id = id
         self.type = type
+        self.localizedType = localizedType
         self.duration = duration
         self.calories = calories
         self.distance = distance
@@ -97,6 +106,7 @@ struct ExerciseListItem: Identifiable {
     }
 
     var formattedDuration: String {
+        guard duration.isFinite, duration >= 0 else { return "0 min" }
         let minutes = Int(duration / 60)
         return "\(minutes) min"
     }

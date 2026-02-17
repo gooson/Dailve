@@ -21,6 +21,7 @@ schemes:
     build:
       targets:
         Dailve: all
+        DailveWatch: all
         DailveTests: [test]
         DailveUITests: [test]
     test:
@@ -81,6 +82,8 @@ targets:
         com.apple.developer.ubiquity-kvstore-identifier: "$(TeamIdentifierPrefix)$(CFBundleIdentifier)"
     dependencies:
       - sdk: HealthKit.framework
+      - target: DailveWatch
+        embed: true
 
   DailveWatch:
     type: application
@@ -90,7 +93,6 @@ targets:
         excludes:
           - "Resources/**"
       - path: ../DailveWatch/Resources
-        type: folder
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.raftel.dailve.watchkitapp
