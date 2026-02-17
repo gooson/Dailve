@@ -31,22 +31,7 @@ struct DotLineChartView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            // Selected point info
-            if let selected = selectedPoint {
-                HStack {
-                    Text(selected.date, format: .dateTime.month(.abbreviated).day())
-                        .font(.caption)
-                    Spacer()
-                    Text(String(format: "%.1f", selected.value))
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                }
-                .foregroundStyle(.secondary)
-                .transition(.opacity)
-            }
-
-            Chart {
+        Chart {
                 ForEach(data) { point in
                     LineMark(
                         x: .value("Date", point.date, unit: xUnit),
@@ -123,7 +108,16 @@ struct DotLineChartView: View {
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
             .accessibilityChartDescriptor(chartDescriptor)
-        }
+            .overlay(alignment: .top) {
+                if let selected = selectedPoint {
+                    ChartSelectionOverlay(
+                        date: selected.date,
+                        value: String(format: "%.1f", selected.value)
+                    )
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: selectedDate)
+                }
+            }
     }
 
     private var chartDescriptor: StandardChartAccessibility {
@@ -181,6 +175,7 @@ struct DotLineChartView: View {
             abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
         })
     }
+
 }
 
 /// Applies chartXVisibleDomain + chartScrollPosition only when timePeriod is set.
