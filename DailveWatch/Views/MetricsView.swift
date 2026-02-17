@@ -248,10 +248,10 @@ struct MetricsView: View {
     }
 
     private var nextEntryName: String? {
-        guard let template = workoutManager.template else { return nil }
+        guard let snapshot = workoutManager.templateSnapshot else { return nil }
         let nextIndex = workoutManager.currentExerciseIndex + 1
-        guard nextIndex < template.exerciseEntries.count else { return nil }
-        return template.exerciseEntries[nextIndex].exerciseName
+        guard nextIndex < snapshot.entries.count else { return nil }
+        return snapshot.entries[nextIndex].exerciseName
     }
 
     // MARK: - Actions

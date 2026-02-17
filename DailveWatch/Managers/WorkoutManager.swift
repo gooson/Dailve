@@ -21,12 +21,15 @@ final class WorkoutManager: NSObject {
     private(set) var isSessionEnded = false
     private(set) var startDate: Date?
 
+    /// True when session was recovered from crash/termination without template data.
+    private(set) var isRecoveredSession = false
+
     // MARK: - Live Metrics
 
     private(set) var heartRate: Double = 0
     private(set) var activeCalories: Double = 0
 
-    /// Running sum and count for average HR calculation.
+    /// Running samples for average HR calculation.
     private var heartRateSamples: [Double] = []
 
     /// Average heart rate across the entire session.
@@ -40,19 +43,21 @@ final class WorkoutManager: NSObject {
         heartRateSamples.max() ?? 0
     }
 
-    // MARK: - Workout Data
+    // MARK: - Workout Data (plain struct snapshot, not @Model reference — M6)
 
-    private(set) var template: WorkoutTemplate?
+    /// Snapshot of template data taken at workout start. Not a SwiftData @Model reference.
+    private(set) var templateSnapshot: WorkoutSessionTemplate?
     private(set) var currentExerciseIndex: Int = 0
     private(set) var currentSetIndex: Int = 0
     private(set) var completedSetsData: [[CompletedSetData]] = []
 
     var currentEntry: TemplateEntry? {
-        guard let template, currentExerciseIndex < template.exerciseEntries.count else { return nil }
-        return template.exerciseEntries[currentExerciseIndex]
+        guard let snapshot = templateSnapshot,
+              currentExerciseIndex < snapshot.entries.count else { return nil }
+        return snapshot.entries[currentExerciseIndex]
     }
 
-    var totalExercises: Int { template?.exerciseEntries.count ?? 0 }
+    var totalExercises: Int { templateSnapshot?.entries.count ?? 0 }
 
     var isLastSet: Bool {
         guard let entry = currentEntry else { return true }
@@ -60,8 +65,8 @@ final class WorkoutManager: NSObject {
     }
 
     var isLastExercise: Bool {
-        guard let template else { return true }
-        return currentExerciseIndex >= template.exerciseEntries.count - 1
+        guard let snapshot = templateSnapshot else { return true }
+        return currentExerciseIndex >= snapshot.entries.count - 1
     }
 
     // MARK: - HealthKit Authorization
@@ -80,11 +85,17 @@ final class WorkoutManager: NSObject {
     // MARK: - Session Lifecycle
 
     func startWorkout(with template: WorkoutTemplate) async throws {
-        self.template = template
+        // Snapshot template data as plain struct (avoids holding @Model reference — M6)
+        let snapshot = WorkoutSessionTemplate(
+            name: template.name,
+            entries: template.exerciseEntries
+        )
+        self.templateSnapshot = snapshot
         self.currentExerciseIndex = 0
         self.currentSetIndex = 0
-        self.completedSetsData = Array(repeating: [], count: template.exerciseEntries.count)
+        self.completedSetsData = Array(repeating: [], count: snapshot.entries.count)
         self.heartRateSamples = []
+        self.isRecoveredSession = false
 
         let config = HKWorkoutConfiguration()
         config.activityType = .traditionalStrengthTraining
@@ -108,6 +119,9 @@ final class WorkoutManager: NSObject {
         startDate = now
         newSession.startActivity(with: now)
         try await newBuilder.beginCollection(at: now)
+
+        // Persist recovery state
+        persistRecoveryState()
 
         // Notify iPhone via WatchConnectivity
         WatchConnectivityManager.shared.sendWorkoutStarted(templateName: template.name)
@@ -137,6 +151,7 @@ final class WorkoutManager: NSObject {
         if currentExerciseIndex < completedSetsData.count {
             completedSetsData[currentExerciseIndex].append(data)
         }
+        persistRecoveryState()
     }
 
     func advanceToNextSet() {
@@ -147,8 +162,8 @@ final class WorkoutManager: NSObject {
     }
 
     func advanceToNextExercise() {
-        guard let template else { return }
-        if currentExerciseIndex < template.exerciseEntries.count - 1 {
+        guard let snapshot = templateSnapshot else { return }
+        if currentExerciseIndex < snapshot.entries.count - 1 {
             currentExerciseIndex += 1
             currentSetIndex = 0
         }
@@ -161,7 +176,7 @@ final class WorkoutManager: NSObject {
     func reset() {
         session = nil
         builder = nil
-        template = nil
+        templateSnapshot = nil
         currentExerciseIndex = 0
         currentSetIndex = 0
         completedSetsData = []
@@ -170,19 +185,71 @@ final class WorkoutManager: NSObject {
         heartRateSamples = []
         isPaused = false
         isSessionEnded = false
+        isRecoveredSession = false
         startDate = nil
+        clearRecoveryState()
     }
 
     // MARK: - Recovery
 
     func recoverSession() async {
         do {
-            let recovered = try await healthStore.recoverActiveWorkoutSession()
+            guard let recovered = try await healthStore.recoverActiveWorkoutSession() else {
+                return
+            }
             session = recovered
-            session?.delegate = self
+            recovered.delegate = self
+
+            // Restore builder + delegate for live metrics (M4)
+            let recoveredBuilder = recovered.associatedWorkoutBuilder()
+            builder = recoveredBuilder
+            recoveredBuilder.delegate = self
+
+            // Restore template/exercise state from persisted data (C4)
+            restoreRecoveryState()
+
+            // If template couldn't be restored, mark as recovered session
+            if templateSnapshot == nil {
+                isRecoveredSession = true
+            }
         } catch {
             // No active session to recover
         }
+    }
+
+    // MARK: - Recovery State Persistence
+
+    private static let recoveryKey = "com.dailve.workoutRecovery"
+
+    private func persistRecoveryState() {
+        guard let snapshot = templateSnapshot else { return }
+        let state = WorkoutRecoveryState(
+            template: snapshot,
+            exerciseIndex: currentExerciseIndex,
+            setIndex: currentSetIndex,
+            completedSets: completedSetsData,
+            startDate: startDate
+        )
+        if let data = try? JSONEncoder().encode(state) {
+            UserDefaults.standard.set(data, forKey: Self.recoveryKey)
+        }
+    }
+
+    private func restoreRecoveryState() {
+        guard let data = UserDefaults.standard.data(forKey: Self.recoveryKey),
+              let state = try? JSONDecoder().decode(WorkoutRecoveryState.self, from: data) else {
+            return
+        }
+        templateSnapshot = state.template
+        currentExerciseIndex = state.exerciseIndex
+        currentSetIndex = state.setIndex
+        completedSetsData = state.completedSets
+        startDate = state.startDate
+        isRecoveredSession = false
+    }
+
+    private func clearRecoveryState() {
+        UserDefaults.standard.removeObject(forKey: Self.recoveryKey)
     }
 
     private override init() {
@@ -267,9 +334,25 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
 
 // MARK: - Data Types
 
-struct CompletedSetData: Sendable {
+struct CompletedSetData: Codable, Sendable {
     let setNumber: Int
     let weight: Double?
     let reps: Int?
     let completedAt: Date
+}
+
+/// Plain struct snapshot of WorkoutTemplate data.
+/// Avoids holding a SwiftData @Model reference in the singleton (M6).
+struct WorkoutSessionTemplate: Codable, Sendable {
+    let name: String
+    let entries: [TemplateEntry]
+}
+
+/// Persisted state for crash recovery (C4).
+private struct WorkoutRecoveryState: Codable {
+    let template: WorkoutSessionTemplate
+    let exerciseIndex: Int
+    let setIndex: Int
+    let completedSets: [[CompletedSetData]]
+    let startDate: Date?
 }

@@ -15,6 +15,7 @@ struct SessionSummaryView: View {
 
     @State private var hasSaved = false
     @State private var isSaving = false
+    @State private var saveError: String?
 
     var body: some View {
         ScrollView {
@@ -53,6 +54,16 @@ struct SessionSummaryView: View {
             .padding(.horizontal, 4)
         }
         .navigationBarBackButtonHidden()
+        .alert("Save Error", isPresented: .init(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("Dismiss Without Saving") {
+                workoutManager.reset()
+            }
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 
     // MARK: - Stats
@@ -85,9 +96,9 @@ struct SessionSummaryView: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(completedSetsData.enumerated()), id: \.offset) { index, sets in
                 if !sets.isEmpty,
-                   let template = workoutManager.template,
-                   index < template.exerciseEntries.count {
-                    let entry = template.exerciseEntries[index]
+                   let template = workoutManager.templateSnapshot,
+                   index < template.entries.count {
+                    let entry = template.entries[index]
                     HStack {
                         Text(entry.exerciseName)
                             .font(.caption2)
@@ -108,6 +119,12 @@ struct SessionSummaryView: View {
         guard !isSaving, !hasSaved else { return }
         isSaving = true
 
+        guard workoutManager.templateSnapshot != nil else {
+            isSaving = false
+            saveError = "Workout data could not be recovered. Sets cannot be saved."
+            return
+        }
+
         saveWorkoutRecords()
         hasSaved = true
         isSaving = false
@@ -116,14 +133,14 @@ struct SessionSummaryView: View {
 
     /// Persist ExerciseRecord + WorkoutSet to SwiftData for each exercise in the session.
     private func saveWorkoutRecords() {
-        guard let template = workoutManager.template else { return }
+        guard let template = workoutManager.templateSnapshot else { return }
         let sessionDuration = Swift.max(endDate.timeIntervalSince(startDate), 1)
         let activeExerciseCount = Double(Swift.max(completedSetsData.filter { !$0.isEmpty }.count, 1))
 
         for (exerciseIndex, setsData) in completedSetsData.enumerated() {
-            guard exerciseIndex < template.exerciseEntries.count, !setsData.isEmpty else { continue }
+            guard exerciseIndex < template.entries.count, !setsData.isEmpty else { continue }
 
-            let entry = template.exerciseEntries[exerciseIndex]
+            let entry = template.entries[exerciseIndex]
 
             let record = ExerciseRecord(
                 date: startDate,
@@ -173,7 +190,7 @@ struct SessionSummaryView: View {
             return total + (w * r)
         }
         if volume >= 1000 {
-            return String(format: "%.1ft", volume / 1000)
+            return String(format: "%.1fk kg", volume / 1000)
         }
         return String(format: "%.0f kg", volume)
     }

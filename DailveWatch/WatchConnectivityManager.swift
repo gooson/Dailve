@@ -9,8 +9,10 @@ import Observation
 final class WatchConnectivityManager: NSObject {
     static let shared = WatchConnectivityManager()
 
-    /// Reachability state — updated by WCSessionDelegate
-    private(set) var isReachable = false
+    /// Reachability state — reads directly from WCSession (per correction #46).
+    var isReachable: Bool {
+        WCSession.isSupported() ? WCSession.default.isReachable : false
+    }
 
     /// Active workout state received from iPhone
     private(set) var activeWorkout: WatchWorkoutState?
@@ -98,17 +100,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
         if let error {
             print("WCSession activation failed: \(error.localizedDescription)")
         }
-        let reachable = session.isReachable
-        Task { @MainActor in
-            self.isReachable = reachable
-        }
     }
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
-        let reachable = session.isReachable
-        Task { @MainActor in
-            self.isReachable = reachable
-        }
+        // No cached state to update — isReachable is a computed property (correction #46)
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
