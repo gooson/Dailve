@@ -5,21 +5,35 @@ struct SetRowView: View {
     let inputType: ExerciseInputType
     let previousSet: PreviousSetInfo?
     let onComplete: () -> Void
+    var onFillFromPrevious: (() -> Void)?
 
     var body: some View {
         HStack(spacing: DS.Spacing.sm) {
-            // Set number
-            Text("\(editableSet.setNumber)")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
+            // Set number + type indicator
+            VStack(spacing: 0) {
+                Text("\(editableSet.setNumber)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(editableSet.setType == .working ? .secondary : editableSet.setType.tintColor)
+                if editableSet.setType != .working {
+                    Text(editableSet.setType.displayName.prefix(1))
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(editableSet.setType.tintColor)
+                }
+            }
+            .frame(width: 24)
 
-            // Previous set info
-            previousLabel
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(width: 56, alignment: .leading)
-                .lineLimit(1)
+            // Previous set info (tap to fill)
+            Button {
+                onFillFromPrevious?()
+            } label: {
+                previousLabel
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 56, alignment: .leading)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+            .disabled(previousSet == nil || onFillFromPrevious == nil)
 
             // Input fields based on exercise type
             inputFields
@@ -38,7 +52,7 @@ struct SetRowView: View {
         .padding(.horizontal, DS.Spacing.sm)
         .background(
             editableSet.isCompleted
-                ? DS.Color.activity.opacity(0.08)
+                ? editableSet.setType.tintColor.opacity(0.08)
                 : Color.clear,
             in: RoundedRectangle(cornerRadius: DS.Radius.sm)
         )

@@ -134,6 +134,23 @@ final class WorkoutSessionViewModel {
         return previousSets[index]
     }
 
+    func fillSetFromPrevious(at index: Int) {
+        guard sets.indices.contains(index) else { return }
+        guard let prev = previousSetInfo(for: sets[index].setNumber) else { return }
+        if let weight = prev.weight {
+            sets[index].weight = weight.formatted(.number.precision(.fractionLength(0...1)))
+        }
+        if let reps = prev.reps {
+            sets[index].reps = "\(reps)"
+        }
+        if let duration = prev.duration {
+            sets[index].duration = "\(Int(duration / 60))"
+        }
+        if let distance = prev.distance {
+            sets[index].distance = distance.formatted(.number.precision(.fractionLength(0...2)))
+        }
+    }
+
     // MARK: - Calorie Estimation
 
     var estimatedCalories: Double? {

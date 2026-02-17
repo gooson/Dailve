@@ -8,6 +8,8 @@ struct WorkoutSessionView: View {
     @State private var viewModel: WorkoutSessionViewModel
     @State private var timer = RestTimerViewModel()
     @State private var saveCount = 0
+    @State private var elapsedSeconds: TimeInterval = 0
+    @State private var sessionTimerTask: Task<Void, Never>?
 
     @Query private var exerciseRecords: [ExerciseRecord]
 
@@ -55,6 +57,11 @@ struct WorkoutSessionView: View {
         }
         .onAppear {
             viewModel.loadPreviousSets(from: exerciseRecords)
+            startSessionTimer()
+        }
+        .onDisappear {
+            sessionTimerTask?.cancel()
+            sessionTimerTask = nil
         }
         .alert("Validation Error", isPresented: .init(
             get: { viewModel.validationError != nil },
@@ -93,9 +100,23 @@ struct WorkoutSessionView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Spacer()
+
+                // Session elapsed time
+                Text(formattedElapsedTime)
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
         }
         .padding(.top, DS.Spacing.sm)
+    }
+
+    private var formattedElapsedTime: String {
+        let mins = Int(elapsedSeconds) / 60
+        let secs = Int(elapsedSeconds) % 60
+        return String(format: "%d:%02d", mins, secs)
     }
 
     // MARK: - Previous Session Banner
@@ -153,9 +174,33 @@ struct WorkoutSessionView: View {
                         if completed {
                             timer.start()
                         }
-                    }
+                    },
+                    onFillFromPrevious: viewModel.previousSetInfo(for: viewModel.sets[index].setNumber) != nil ? {
+                        viewModel.fillSetFromPrevious(at: index)
+                    } : nil
                 )
                 .contextMenu {
+                    // Set type selection
+                    Menu {
+                        ForEach([SetType.warmup, .working, .drop, .failure], id: \.self) { type in
+                            Button {
+                                viewModel.sets[index].setType = type
+                            } label: {
+                                Label {
+                                    Text(type.displayName)
+                                } icon: {
+                                    if viewModel.sets[index].setType == type {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Label("Set Type", systemImage: "tag")
+                    }
+
+                    Divider()
+
                     Button(role: .destructive) {
                         withAnimation(DS.Animation.snappy) {
                             viewModel.removeSet(at: index)
@@ -258,5 +303,19 @@ struct WorkoutSessionView: View {
         modelContext.insert(record)
         saveCount += 1
         dismiss()
+    }
+
+    private func startSessionTimer() {
+        sessionTimerTask?.cancel()
+        sessionTimerTask = Task {
+            while !Task.isCancelled {
+                elapsedSeconds = Date().timeIntervalSince(viewModel.sessionStartTime)
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                } catch {
+                    break
+                }
+            }
+        }
     }
 }

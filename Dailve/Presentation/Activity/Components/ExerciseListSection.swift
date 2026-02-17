@@ -93,6 +93,20 @@ struct ExerciseListSection: View {
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
+
+                    // Muscle group badges
+                    if !record.primaryMuscles.isEmpty {
+                        HStack(spacing: DS.Spacing.xxs) {
+                            ForEach(record.primaryMuscles.prefix(3), id: \.self) { muscle in
+                                Text(muscle.displayName)
+                                    .font(.system(size: 9, weight: .medium))
+                                    .padding(.horizontal, DS.Spacing.xs)
+                                    .padding(.vertical, 1)
+                                    .background(DS.Color.activity.opacity(0.12), in: Capsule())
+                                    .foregroundStyle(DS.Color.activity)
+                            }
+                        }
+                    }
                 }
 
                 Spacer()
