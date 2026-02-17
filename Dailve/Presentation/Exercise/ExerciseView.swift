@@ -32,7 +32,18 @@ struct ExerciseView: View {
                     }
 
                     ForEach(viewModel.allExercises) { item in
-                        ExerciseRowView(item: item)
+                        if let defID = item.exerciseDefinitionID {
+                            NavigationLink {
+                                ExerciseHistoryView(
+                                    exerciseDefinitionID: defID,
+                                    exerciseName: item.type
+                                )
+                            } label: {
+                                ExerciseRowView(item: item)
+                            }
+                        } else {
+                            ExerciseRowView(item: item)
+                        }
                     }
                 }
             }

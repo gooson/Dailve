@@ -42,7 +42,8 @@ final class ExerciseViewModel {
                 distance: record.distance,
                 date: record.date,
                 source: .manual,
-                completedSets: record.completedSets
+                completedSets: record.completedSets,
+                exerciseDefinitionID: record.exerciseDefinitionID
             ))
         }
 
@@ -71,11 +72,13 @@ struct ExerciseListItem: Identifiable {
     let date: Date
     let source: Source
     let completedSets: [WorkoutSet]
+    let exerciseDefinitionID: String?
 
     init(
         id: String, type: String, duration: TimeInterval,
         calories: Double?, distance: Double?, date: Date,
-        source: Source, completedSets: [WorkoutSet] = []
+        source: Source, completedSets: [WorkoutSet] = [],
+        exerciseDefinitionID: String? = nil
     ) {
         self.id = id
         self.type = type
@@ -85,6 +88,7 @@ struct ExerciseListItem: Identifiable {
         self.date = date
         self.source = source
         self.completedSets = completedSets
+        self.exerciseDefinitionID = exerciseDefinitionID
     }
 
     enum Source {
