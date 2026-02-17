@@ -174,7 +174,7 @@ struct WatchHeartRateSample: Codable, Sendable {
     let timestamp: Date
 }
 
-struct WatchExerciseInfo: Codable, Sendable {
+struct WatchExerciseInfo: Codable, Sendable, Hashable {
     let id: String
     let name: String
     let inputType: String

@@ -32,6 +32,10 @@ struct QuickStartView: View {
         .sheet(item: $selectedExercise) { exercise in
             QuickWorkoutView(exercise: exercise)
         }
+        .onChange(of: connectivity.activeWorkout?.exerciseID) {
+            // Dismiss sheet so NavigationStack path reset can pop this view
+            selectedExercise = nil
+        }
     }
 }
 
