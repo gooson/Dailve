@@ -15,10 +15,7 @@ struct RangeBarChartView: View {
     @State private var selectedDate: Date?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            selectionHeader
-
-            Chart {
+        Chart {
                 ForEach(data) { point in
                     // Capsule bar for min-max range
                     BarMark(
@@ -82,29 +79,20 @@ struct RangeBarChartView: View {
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
             .accessibilityChartDescriptor(chartDescriptor)
-        }
+            .overlay(alignment: .top) {
+                if let point = selectedPoint {
+                    ChartSelectionOverlay(
+                        date: point.date,
+                        value: "\(Int(point.min))–\(Int(point.max)) bpm (avg \(Int(point.average)))"
+                    )
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: selectedDate)
+                }
+            }
     }
 
     private var chartDescriptor: RangeChartAccessibility {
         RangeChartAccessibility(title: "Resting Heart Rate", data: data, unitSuffix: "bpm")
-    }
-
-    // MARK: - Subviews
-
-    @ViewBuilder
-    private var selectionHeader: some View {
-        if let point = selectedPoint {
-            HStack {
-                Text(point.date, format: .dateTime.month(.abbreviated).day())
-                    .font(.caption)
-                Spacer()
-                Text("\(Int(point.min))–\(Int(point.max)) bpm (avg \(Int(point.average)))")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-            }
-            .foregroundStyle(.secondary)
-            .transition(.opacity)
-        }
     }
 
     // MARK: - Helpers
@@ -152,4 +140,5 @@ struct RangeBarChartView: View {
         }
         return tintColor
     }
+
 }

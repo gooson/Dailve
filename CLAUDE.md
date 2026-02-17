@@ -150,3 +150,10 @@
 25. **parallel fetch에 partial failure 보고 필수**: async let 4개+ 사용 시 실패 카운트를 추적하여 "Some data could not be loaded (N of M sources)" 형태로 사용자에게 안내
 26. **Hashable 구현 시 == 와 hash 일치 필수**: `==`에서 비교하는 프로퍼티와 `hash(into:)`에 combine하는 프로퍼티가 동일해야 함. 불일치 시 Dictionary/Set에서 예측 불가 동작
 27. **리뷰 적용은 파일별 batch**: 6관점 리뷰 결과를 파일별로 병합 후 한 번에 적용. 중간 빌드 없이 최종 1회 빌드+테스트로 검증
+
+### 2026-02-17: Chart UX 레이아웃 안정성 교정
+
+28. **차트 selection info는 VStack 삽입 금지**: 조건부 VStack 자식은 레이아웃 시프트 유발. `.overlay(alignment: .top)` + `.ultraThinMaterial` 패턴 사용
+29. **차트 period 전환은 `.id()` + `.transition(.opacity)`**: Spring 애니메이션은 데이터 차트에 부적합. `.id()`로 뷰 교체하면 `@State` 자동 리셋 + crossfade 효과
+30. **데이터 종속 UI는 항상 렌더 + placeholder**: `if let data { stats }` 대신 `stats(data ?? "—")` 패턴으로 레이아웃 안정성 확보. `Text(" ")` 대신 `.frame(minHeight:)` 사용
+31. **중복 차트 UI는 공통 컴포넌트 추출**: 4개 이상 차트에서 동일 패턴 반복 시 `Shared/Charts/` 에 공통 View 생성 (예: `ChartSelectionOverlay`)

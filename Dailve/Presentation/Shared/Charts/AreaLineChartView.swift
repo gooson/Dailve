@@ -16,10 +16,7 @@ struct AreaLineChartView: View {
     @State private var selectedDate: Date?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            selectionHeader
-
-            Chart {
+        Chart {
                 ForEach(data) { point in
                     AreaMark(
                         x: .value("Date", point.date, unit: xUnit),
@@ -85,29 +82,20 @@ struct AreaLineChartView: View {
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
             .accessibilityChartDescriptor(chartDescriptor)
-        }
+            .overlay(alignment: .top) {
+                if let point = selectedPoint {
+                    ChartSelectionOverlay(
+                        date: point.date,
+                        value: String(format: "%.1f %@", point.value, unitSuffix)
+                    )
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: selectedDate)
+                }
+            }
     }
 
     private var chartDescriptor: StandardChartAccessibility {
         StandardChartAccessibility(title: "Weight", data: data, unitSuffix: unitSuffix)
-    }
-
-    // MARK: - Subviews
-
-    @ViewBuilder
-    private var selectionHeader: some View {
-        if let point = selectedPoint {
-            HStack {
-                Text(point.date, format: .dateTime.month(.abbreviated).day())
-                    .font(.caption)
-                Spacer()
-                Text(String(format: "%.1f %@", point.value, unitSuffix))
-                    .font(.caption)
-                    .fontWeight(.semibold)
-            }
-            .foregroundStyle(.secondary)
-            .transition(.opacity)
-        }
     }
 
     // MARK: - Helpers
@@ -145,4 +133,5 @@ struct AreaLineChartView: View {
             abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
         })
     }
+
 }

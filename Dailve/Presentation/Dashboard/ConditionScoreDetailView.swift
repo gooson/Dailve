@@ -51,23 +51,29 @@ struct ConditionScoreDetailView: View {
                 chartHeader
 
                 // Trend chart (natively scrollable)
+                // Note: .id() forces full view recreation on period change,
+                // intentionally resetting chart @State (e.g. selectedDate) for clean transition.
                 StandardCard {
-                    if viewModel.chartData.isEmpty && !viewModel.isLoading {
-                        chartEmptyState
-                    } else {
-                        DotLineChartView(
-                            data: viewModel.chartData,
-                            baseline: 50,
-                            yAxisLabel: "Score",
-                            timePeriod: viewModel.selectedPeriod,
-                            tintColor: score.status.color,
-                            trendLine: viewModel.trendLineData,
-                            scrollPosition: $viewModel.scrollPosition
-                        )
-                        .frame(height: chartHeight)
+                    Group {
+                        if viewModel.chartData.isEmpty && !viewModel.isLoading {
+                            chartEmptyState
+                        } else {
+                            DotLineChartView(
+                                data: viewModel.chartData,
+                                baseline: 50,
+                                yAxisLabel: "Score",
+                                timePeriod: viewModel.selectedPeriod,
+                                tintColor: score.status.color,
+                                trendLine: viewModel.trendLineData,
+                                scrollPosition: $viewModel.scrollPosition
+                            )
+                            .frame(height: chartHeight)
+                        }
                     }
+                    .id(viewModel.selectedPeriod)
+                    .transition(.opacity)
                 }
-                .animation(DS.Animation.snappy, value: viewModel.selectedPeriod)
+                .animation(.easeInOut(duration: 0.25), value: viewModel.selectedPeriod)
 
                 // Summary stats + Highlights
                 if sizeClass == .regular {

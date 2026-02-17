@@ -32,25 +32,22 @@ struct MetricSummaryHeader: View {
                     .foregroundStyle(.secondary)
             }
 
-            // Period summary stats
-            if let summary {
-                HStack(spacing: DS.Spacing.lg) {
-                    statItem(label: "Avg", value: formatValue(summary.average))
-                    if sizeClass == .regular { statDivider }
-                    statItem(label: "Min", value: formatValue(summary.min))
-                    if sizeClass == .regular { statDivider }
-                    statItem(label: "Max", value: formatValue(summary.max))
+            // Period summary stats (always visible — shows "—" placeholders when loading)
+            HStack(spacing: DS.Spacing.lg) {
+                statItem(label: "Avg", value: summary.map { formatValue($0.average) } ?? "—")
+                if sizeClass == .regular { statDivider }
+                statItem(label: "Min", value: summary.map { formatValue($0.min) } ?? "—")
+                if sizeClass == .regular { statDivider }
+                statItem(label: "Max", value: summary.map { formatValue($0.max) } ?? "—")
 
-                    if let change = summary.changePercentage {
-                        changeBadge(change)
-                    }
-                }
-
-                // Comparison sentence
-                if let change = summary.changePercentage {
-                    comparisonSentence(change)
+                if let change = summary?.changePercentage {
+                    changeBadge(change)
                 }
             }
+            .animation(.easeInOut(duration: 0.2), value: summary?.average)
+
+            // Comparison sentence (fixed height to prevent layout shift)
+            comparisonSentence(summary?.changePercentage)
 
             // Last updated
             if let lastUpdated {
@@ -72,20 +69,23 @@ struct MetricSummaryHeader: View {
     }
 
     private func statItem(label: String, value: String) -> some View {
-        VStack(spacing: DS.Spacing.xxs) {
+        let valueFont: Font = sizeClass == .regular ? .subheadline : .caption
+        return VStack(spacing: DS.Spacing.xxs) {
             Text(label)
                 .font(sizeClass == .regular ? .caption : .caption2)
                 .foregroundStyle(.tertiary)
             Text(value)
-                .font(sizeClass == .regular ? .subheadline : .caption)
+                .font(valueFont)
                 .fontWeight(.medium)
+                .contentTransition(.numericText())
+                .frame(minHeight: sizeClass == .regular ? 20 : 16)
         }
     }
 
     private func changeBadge(_ change: Double) -> some View {
         let isPositive = change > 0
-        let icon = isPositive ? "arrow.up.right" : "arrow.down.right"
-        let color = badgeColor(isPositive: isPositive)
+        let icon = change == 0 ? "equal" : (isPositive ? "arrow.up.right" : "arrow.down.right")
+        let color: Color = change == 0 ? .secondary : badgeColor(isPositive: isPositive)
 
         return HStack(spacing: 2) {
             Image(systemName: icon)
@@ -126,12 +126,19 @@ struct MetricSummaryHeader: View {
         }
     }
 
-    private func comparisonSentence(_ change: Double) -> some View {
-        let direction = change > 0 ? "higher" : "lower"
-        let absChange = String(format: "%.1f", abs(change))
-        return Text("Your average is \(absChange)% \(direction) than last period")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+    @ViewBuilder
+    private func comparisonSentence(_ change: Double?) -> some View {
+        Group {
+            if let change {
+                let direction = change > 0 ? "higher" : "lower"
+                let absChange = String(format: "%.1f", abs(change))
+                Text("Your average is \(absChange)% \(direction) than last period")
+                    .foregroundStyle(.secondary)
+                    .transition(.opacity)
+            }
+        }
+        .font(.caption)
+        .frame(minHeight: 16, alignment: .leading)
     }
 
     private func badgeColor(isPositive: Bool) -> Color {

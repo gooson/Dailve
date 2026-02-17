@@ -17,10 +17,7 @@ struct BarChartView: View {
     @State private var selectedDate: Date?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            selectionHeader
-
-            Chart {
+        Chart {
                 ForEach(data) { point in
                     BarMark(
                         x: .value("Date", point.date, unit: xUnit),
@@ -71,29 +68,21 @@ struct BarChartView: View {
             .sensoryFeedback(.selection, trigger: selectedDate)
             .frame(height: chartHeight)
             .accessibilityChartDescriptor(chartDescriptor)
-        }
+            .overlay(alignment: .top) {
+                if let point = selectedPoint {
+                    ChartSelectionOverlay(
+                        date: point.date,
+                        value: "\(String(format: "%.0f", point.value))\(unitSuffix)",
+                        dateFormat: headerDateFormat
+                    )
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.15), value: selectedDate)
+                }
+            }
     }
 
     private var chartDescriptor: StandardChartAccessibility {
         StandardChartAccessibility(title: valueLabel, data: data, unitSuffix: unitSuffix, valueFormat: "%.0f")
-    }
-
-    // MARK: - Subviews
-
-    @ViewBuilder
-    private var selectionHeader: some View {
-        if let point = selectedPoint {
-            HStack {
-                Text(point.date, format: headerDateFormat)
-                    .font(.caption)
-                Spacer()
-                Text("\(String(format: "%.0f", point.value))\(unitSuffix)")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-            }
-            .foregroundStyle(.secondary)
-            .transition(.opacity)
-        }
     }
 
     // MARK: - Helpers
@@ -143,4 +132,5 @@ struct BarChartView: View {
     private var headerDateFormat: Date.FormatStyle {
         period == .day ? .dateTime.hour().minute() : .dateTime.month(.abbreviated).day()
     }
+
 }
