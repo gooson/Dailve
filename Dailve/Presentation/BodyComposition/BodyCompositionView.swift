@@ -226,7 +226,7 @@ struct BodyCompositionView: View {
 
 // MARK: - Form Sheet
 
-private struct BodyCompositionFormSheet: View {
+struct BodyCompositionFormSheet: View {
     @Bindable var viewModel: BodyCompositionViewModel
     let isEdit: Bool
     let onSave: () -> Void
