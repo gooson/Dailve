@@ -68,7 +68,12 @@
       "Bash(gh pr review:*)",
       "Bash(git diff:*)",
       "Bash(git remote:*)",
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "Bash(git apply:*)",
+      "Bash(xcrun simctl shutdown:*)",
+      "Bash(xcrun simctl boot:*)",
+      "mcp__serena__search_for_pattern",
+      "mcp__plugin_serena_serena__find_file"
     ]
   }
 }
