@@ -12,9 +12,13 @@ struct ContentView: View {
                 WorkoutIdleView()
             }
         }
-        .onChange(of: connectivity.activeWorkout?.exerciseID) {
-            // Pop all pushed views when workout state changes
-            navigationPath = NavigationPath()
+        .onChange(of: connectivity.activeWorkout?.exerciseID) { oldValue, newValue in
+            // When iPhone starts a workout (nil → exerciseID), pop QuickStartView
+            // so root switches from WorkoutIdleView to WorkoutActiveView.
+            // Without this, pushed views remain on stack and cover the transition.
+            if oldValue == nil, newValue != nil {
+                navigationPath = NavigationPath()
+            }
         }
     }
 }

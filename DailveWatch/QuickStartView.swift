@@ -32,10 +32,6 @@ struct QuickStartView: View {
         .sheet(item: $selectedExercise) { exercise in
             QuickWorkoutView(exercise: exercise)
         }
-        .onChange(of: connectivity.activeWorkout?.exerciseID) {
-            // Dismiss sheet so NavigationStack path reset can pop this view
-            selectedExercise = nil
-        }
     }
 }
 
@@ -127,6 +123,22 @@ struct QuickWorkoutView: View {
         .onAppear {
             reps = exercise.defaultReps ?? 0
         }
+        .onDisappear {
+            // Send unsaved sets when view is dismissed unexpectedly
+            // (e.g., iPhone starts a workout and navigation resets).
+            // finishWorkout() already calls sendWorkoutCompletion + dismiss,
+            // so completedSets will be empty if user tapped Finish normally.
+            guard !completedSets.isEmpty else { return }
+            let update = WatchWorkoutUpdate(
+                exerciseID: exercise.id,
+                exerciseName: exercise.name,
+                completedSets: completedSets,
+                startTime: startTime,
+                endTime: Date(),
+                heartRateSamples: []
+            )
+            connectivity.sendWorkoutCompletion(update)
+        }
     }
 
     private func completeSet() {
@@ -161,6 +173,7 @@ struct QuickWorkoutView: View {
             heartRateSamples: []
         )
         connectivity.sendWorkoutCompletion(update)
+        completedSets = [] // Prevent duplicate send in onDisappear
         dismiss()
     }
 }

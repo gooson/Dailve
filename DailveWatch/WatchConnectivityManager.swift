@@ -180,4 +180,20 @@ struct WatchExerciseInfo: Codable, Sendable, Hashable {
     let inputType: String
     let defaultSets: Int
     let defaultReps: Int?
+
+    // Hashable uses id only to match Identifiable semantics (Correction Log #26)
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+// MARK: - Watch Navigation
+
+/// Type-safe navigation destinations for Watch app.
+enum WatchRoute: Hashable {
+    case quickStart
 }

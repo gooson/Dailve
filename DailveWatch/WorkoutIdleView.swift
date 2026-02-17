@@ -25,7 +25,7 @@ struct WorkoutIdleView: View {
             }
 
             if !connectivity.exerciseLibrary.isEmpty {
-                NavigationLink(value: "quickStart") {
+                NavigationLink(value: WatchRoute.quickStart) {
                     Label("Quick Start", systemImage: "bolt.fill")
                         .font(.caption)
                 }
@@ -34,8 +34,11 @@ struct WorkoutIdleView: View {
             }
         }
         .padding()
-        .navigationDestination(for: String.self) { _ in
-            QuickStartView()
+        .navigationDestination(for: WatchRoute.self) { destination in
+            switch destination {
+            case .quickStart:
+                QuickStartView()
+            }
         }
     }
 }
