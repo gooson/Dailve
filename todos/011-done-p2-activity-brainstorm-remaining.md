@@ -1,7 +1,7 @@
 ---
 source: brainstorm/activity-tab-redesign
 priority: p2
-status: ready
+status: done
 created: 2026-02-17
 updated: 2026-02-17
 ---
@@ -27,16 +27,20 @@ updated: 2026-02-17
 - [x] **AI 기반 운동 추천**: WorkoutRecommendationService + SuggestedWorkoutCard (146e804)
 - [x] **Apple Watch 연동 (iOS 인프라)**: WatchSessionManager + DTOs (b58da45)
 
-## Phase 3 Items
+## Phase 2 잔여 (인프라만 완료) ✅ All Done
 
-- [ ] **소셜 기능**: 운동 공유/비교
-- [ ] **1RM 추정 (Epley/Brzycki 공식)**: 최대 중량 추정
-- [ ] **볼륨 분석**: 근육별 주간 세트 수 대시보드
-- [ ] **슈퍼세트/서킷 지원**: 복합 운동 세션
-- [ ] **커스텀 운동 카테고리**: 사용자 정의 카테고리 생성
+- [x] **Apple Watch 앱 타겟**: watchOS target (xcodegen) + Watch SwiftUI 앱 + 세트 입력 UI + 심박수 실시간 표시 (230a4cd)
+
+## Phase 3 Items ✅ All Done
+
+- [x] **1RM 추정 (Epley/Brzycki 공식)**: 최대 중량 추정 + 운동 히스토리 뷰에 표시 (70a1b27)
+- [x] **볼륨 분석**: 근육별 주간 세트 수 대시보드 + 목표 세트 설정 (0605fe0)
+- [x] **슈퍼세트/서킷 지원**: 복합 운동 세션 모드 + 연속 운동 타이머 (287dee1)
+- [x] **커스텀 운동 카테고리**: 사용자 정의 카테고리 CRUD + ExercisePickerView 통합 (da04a24)
+- [x] **소셜 기능**: 운동 공유/비교 (ShareLink + Activity Summary 카드) (35b7a41)
 
 ## Open Questions (브레인스토밍에서 미해결)
 
+- [x] kg/lb 단위 설정 UI 위치 → @AppStorage + WorkoutSessionView 인라인으로 결정
 - [ ] 운동 라이브러리 데이터 소스: 번들 JSON vs API vs 커뮤니티 기여?
-- [ ] kg/lb 단위 설정 UI 위치: Settings 탭 vs 운동 화면 내 인라인?
 - [ ] 기존 HealthKit 운동 데이터와 새 ExerciseRecord의 중복 처리 전략?
