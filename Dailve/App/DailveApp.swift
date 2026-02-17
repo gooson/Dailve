@@ -17,6 +17,7 @@ struct DailveApp: App {
         do {
             modelContainer = try ModelContainer(
                 for: ExerciseRecord.self, BodyCompositionRecord.self, WorkoutSet.self,
+                migrationPlan: AppMigrationPlan.self,
                 configurations: config
             )
         } catch {
@@ -26,6 +27,7 @@ struct DailveApp: App {
             do {
                 modelContainer = try ModelContainer(
                     for: ExerciseRecord.self, BodyCompositionRecord.self, WorkoutSet.self,
+                    migrationPlan: AppMigrationPlan.self,
                     configurations: config
                 )
             } catch {

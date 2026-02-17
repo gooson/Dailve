@@ -7,6 +7,7 @@ final class RestTimerViewModel {
     var secondsRemaining: Int = 0
     var isRunning: Bool = false
     var defaultDuration: Int = 90
+    var completionCount: Int = 0
 
     private var timerTask: Task<Void, Never>?
 
@@ -36,6 +37,7 @@ final class RestTimerViewModel {
             }
             guard !Task.isCancelled else { return }
             isRunning = false
+            completionCount += 1
         }
     }
 

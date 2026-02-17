@@ -41,6 +41,7 @@ struct WorkoutSessionView: View {
         }
         .animation(DS.Animation.snappy, value: timer.isRunning)
         .sensoryFeedback(.success, trigger: saveCount)
+        .sensoryFeedback(.success, trigger: timer.completionCount)
         .navigationTitle(exercise.localizedName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -154,11 +155,13 @@ struct WorkoutSessionView: View {
                         }
                     }
                 )
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                .contextMenu {
                     Button(role: .destructive) {
-                        viewModel.removeSet(at: index)
+                        withAnimation(DS.Animation.snappy) {
+                            viewModel.removeSet(at: index)
+                        }
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("Delete Set", systemImage: "trash")
                     }
                 }
             }

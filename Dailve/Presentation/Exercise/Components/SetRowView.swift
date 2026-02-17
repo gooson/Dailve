@@ -57,8 +57,18 @@ struct SetRowView: View {
             case .setsReps:
                 let r = prev.reps.map { "\($0)" } ?? "—"
                 Text("×\(r)")
-            default:
-                Text("—")
+            case .durationDistance:
+                let d = prev.duration.map { "\(Int($0 / 60))m" } ?? "—"
+                let dist = prev.distance.map {
+                    $0.formatted(.number.precision(.fractionLength(0...1))) + "k"
+                } ?? ""
+                Text(dist.isEmpty ? d : "\(d) \(dist)")
+            case .durationIntensity:
+                let d = prev.duration.map { "\(Int($0 / 60))m" } ?? "—"
+                Text(d)
+            case .roundsBased:
+                let r = prev.reps.map { "\($0)r" } ?? "—"
+                Text(r)
             }
         } else {
             Text("—")
