@@ -191,3 +191,9 @@
 51. **비교 데이터(change indicator)에 유효 기간 threshold**: 7일 전 비교 데이터가 실제로 90일 전이면 오해 유발. `comparisonWindowDays` 상수로 최대 허용 범위 제한
 52. **computed property가 merge 로직 포함 시 `@State` 캐싱**: `bodyItems`처럼 두 데이터 소스를 합치는 computed property는 렌더마다 재계산. `@State` + `onChange(of: count)` 무효화 패턴 사용
 53. **탭 통합 시 dead code 즉시 삭제**: 기존 뷰 파일을 "참고용"으로 남기면 유지보수 비용만 증가. 통합 완료 후 리뷰 단계에서 삭제
+
+### 2026-02-17: 세션 회고 교정 (프로세스)
+
+54. **`/ship`에서 머지 전략은 `--merge` 기본**: squash는 커밋 이력을 소실시킴. 사용자가 명시적으로 요청하지 않는 한 `--merge` 사용
+55. **리뷰 수정 시 dead code 삭제를 별도 단계로 분리하지 않음**: 리뷰에서 발견된 dead code는 같은 fix 커밋에서 삭제. 별도 TODO로 미루면 잊혀짐
+56. **BodyCompositionViewModel에 `errorMessage` 없음 확인 후 코딩**: 기존 VM의 프로퍼티 존재 여부를 빌드 전에 grep으로 확인. 빌드 실패 후 수정보다 사전 확인이 효율적
