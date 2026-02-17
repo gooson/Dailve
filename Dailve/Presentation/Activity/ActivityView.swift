@@ -8,7 +8,7 @@ struct ActivityView: View {
     @State private var selectedExercise: ExerciseDefinition?
     @Environment(\.modelContext) private var modelContext
 
-    private let library: ExerciseLibraryQuerying = ExerciseLibraryService()
+    private let library: ExerciseLibraryQuerying = ExerciseLibraryService.shared
 
     @Query(sort: \ExerciseRecord.date, order: .reverse) private var recentRecords: [ExerciseRecord]
 
@@ -31,8 +31,7 @@ struct ActivityView: View {
                     // Recent Workouts
                     ExerciseListSection(
                         workouts: viewModel.recentWorkouts,
-                        exerciseRecords: recentRecords,
-                        library: library
+                        exerciseRecords: recentRecords
                     )
 
                     if let error = viewModel.errorMessage {

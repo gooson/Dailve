@@ -45,7 +45,7 @@ struct ExercisePickerView: View {
                         HStack(spacing: DS.Spacing.sm) {
                             categoryChip(nil, label: "All")
                             ForEach(ExerciseCategory.allCases, id: \.self) { category in
-                                categoryChip(category, label: category.rawValue.capitalized)
+                                categoryChip(category, label: category.displayName)
                             }
                         }
                         .padding(.horizontal, DS.Spacing.lg)
@@ -83,12 +83,12 @@ struct ExercisePickerView: View {
                         .font(.body)
                         .foregroundStyle(.primary)
                     HStack(spacing: DS.Spacing.xs) {
-                        Text(exercise.primaryMuscles.map(\.rawValue.capitalized).joined(separator: ", "))
+                        Text(exercise.primaryMuscles.map(\.displayName).joined(separator: ", "))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text("·")
                             .foregroundStyle(.tertiary)
-                        Text(exercise.equipment.rawValue.capitalized)
+                        Text(exercise.equipment.displayName)
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }

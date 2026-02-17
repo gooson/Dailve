@@ -40,10 +40,12 @@ final class WorkoutSessionViewModel {
     private let maxReps = 1000
     private let maxDurationMinutes = 500
     private let maxDistanceKm = 500.0
+    private let maxIntensity = 10
     private let maxMemoLength = 500
+    private let defaultRestSeconds: TimeInterval = 90
 
     /// Body weight for calorie estimation (fetched externally, defaults to 70kg)
-    var bodyWeightKg: Double = CalorieEstimationService.defaultBodyWeightKg
+    var bodyWeightKg: Double = 70.0
 
     init(
         exercise: ExerciseDefinition,
@@ -150,10 +152,9 @@ final class WorkoutSessionViewModel {
     }
 
     private var totalRestSeconds: TimeInterval {
-        // Approximate: 90 seconds per completed set (minus the last)
         let completedCount = sets.filter(\.isCompleted).count
         let restSets = max(completedCount - 1, 0)
-        return Double(restSets) * 90.0
+        return Double(restSets) * defaultRestSeconds
     }
 
     // MARK: - Summary
@@ -216,7 +217,27 @@ final class WorkoutSessionViewModel {
             if exercise.inputType == .durationDistance {
                 if !set.distance.isEmpty {
                     guard let dist = Double(set.distance), dist > 0, dist <= maxDistanceKm else {
-                        validationError = "Distance must be between 0 and \(Int(maxDistanceKm))km"
+                        validationError = "Distance must be between 0.1 and \(Int(maxDistanceKm))km"
+                        return nil
+                    }
+                }
+            }
+            if exercise.inputType == .durationIntensity {
+                if !set.intensity.isEmpty {
+                    guard let val = Int(set.intensity), val >= 1, val <= maxIntensity else {
+                        validationError = "Intensity must be between 1 and \(maxIntensity)"
+                        return nil
+                    }
+                }
+            }
+            if exercise.inputType == .roundsBased {
+                guard let reps = Int(set.reps), reps > 0, reps <= maxReps else {
+                    validationError = "Rounds must be between 1 and \(maxReps)"
+                    return nil
+                }
+                if !set.duration.isEmpty {
+                    guard let secs = Int(set.duration), secs > 0 else {
+                        validationError = "Duration must be greater than 0"
                         return nil
                     }
                 }
@@ -243,6 +264,7 @@ final class WorkoutSessionViewModel {
         )
 
         // Create WorkoutSet objects for completed sets
+        // SwiftData handles inverse relationship via @Relationship
         for editableSet in completedSets {
             let workoutSet = WorkoutSet(
                 setNumber: editableSet.setNumber,
@@ -251,9 +273,9 @@ final class WorkoutSessionViewModel {
                 reps: Int(editableSet.reps),
                 duration: Int(editableSet.duration).map { TimeInterval($0 * 60) },
                 distance: Double(editableSet.distance),
+                intensity: Int(editableSet.intensity),
                 isCompleted: true
             )
-            workoutSet.exerciseRecord = record
             record.sets.append(workoutSet)
         }
 

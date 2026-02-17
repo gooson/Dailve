@@ -8,7 +8,7 @@ struct ExerciseView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExerciseRecord.date, order: .reverse) private var manualRecords: [ExerciseRecord]
 
-    private let library: ExerciseLibraryQuerying = ExerciseLibraryService()
+    private let library: ExerciseLibraryQuerying = ExerciseLibraryService.shared
 
     var body: some View {
         Group {

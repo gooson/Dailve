@@ -5,18 +5,15 @@ import SwiftUI
 struct ExerciseListSection: View {
     let workouts: [WorkoutSummary]
     let exerciseRecords: [ExerciseRecord]
-    let library: ExerciseLibraryQuerying
     let limit: Int
 
     init(
         workouts: [WorkoutSummary],
         exerciseRecords: [ExerciseRecord] = [],
-        library: ExerciseLibraryQuerying = ExerciseLibraryService(),
         limit: Int = 5
     ) {
         self.workouts = workouts
         self.exerciseRecords = exerciseRecords
-        self.library = library
         self.limit = limit
     }
 
@@ -151,26 +148,6 @@ struct ExerciseListSection: View {
     // MARK: - Helpers
 
     private func setSummary(for record: ExerciseRecord) -> String? {
-        let completed = record.completedSets
-        guard !completed.isEmpty else { return nil }
-
-        var parts: [String] = []
-        parts.append("\(completed.count) sets")
-
-        let weights = completed.compactMap(\.weight).filter { $0 > 0 }
-        if let minW = weights.min(), let maxW = weights.max() {
-            if minW == maxW {
-                parts.append("\(minW.formatted(.number.precision(.fractionLength(0...1))))kg")
-            } else {
-                parts.append("\(minW.formatted(.number.precision(.fractionLength(0...1))))-\(maxW.formatted(.number.precision(.fractionLength(0...1))))kg")
-            }
-        }
-
-        let totalReps = completed.compactMap(\.reps).reduce(0, +)
-        if totalReps > 0 {
-            parts.append("\(totalReps) reps")
-        }
-
-        return parts.joined(separator: " · ")
+        record.completedSets.setSummary()
     }
 }

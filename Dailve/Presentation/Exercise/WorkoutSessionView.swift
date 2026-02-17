@@ -80,18 +80,16 @@ struct WorkoutSessionView: View {
 
                     HStack(spacing: DS.Spacing.xs) {
                         ForEach(exercise.primaryMuscles, id: \.self) { muscle in
-                            Text(muscle.rawValue.capitalized)
+                            Text(muscle.displayName)
                                 .font(.caption2.weight(.medium))
                                 .padding(.horizontal, DS.Spacing.sm)
                                 .padding(.vertical, DS.Spacing.xxs)
                                 .background(DS.Color.activity.opacity(0.15), in: Capsule())
                                 .foregroundStyle(DS.Color.activity)
                         }
-                        if let equipment = exercise.equipment.rawValue.capitalized as String? {
-                            Text(equipment)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(exercise.equipment.displayName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }

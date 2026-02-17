@@ -98,25 +98,6 @@ struct ExerciseListItem: Identifiable {
     }
 
     var setSummary: String? {
-        guard !completedSets.isEmpty else { return nil }
-
-        var parts: [String] = []
-        parts.append("\(completedSets.count) sets")
-
-        let weights = completedSets.compactMap(\.weight).filter { $0 > 0 }
-        if let minW = weights.min(), let maxW = weights.max() {
-            if minW == maxW {
-                parts.append("\(minW.formatted(.number.precision(.fractionLength(0...1))))kg")
-            } else {
-                parts.append("\(minW.formatted(.number.precision(.fractionLength(0...1))))-\(maxW.formatted(.number.precision(.fractionLength(0...1))))kg")
-            }
-        }
-
-        let totalReps = completedSets.compactMap(\.reps).reduce(0, +)
-        if totalReps > 0 {
-            parts.append("\(totalReps) reps")
-        }
-
-        return parts.joined(separator: " · ")
+        completedSets.setSummary()
     }
 }

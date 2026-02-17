@@ -237,4 +237,42 @@ struct WorkoutSessionViewModelTests {
         #expect(record == nil)
         #expect(vm.validationError != nil)
     }
+
+    @Test("createValidatedRecord rejects intensity > 10")
+    func intensityOverLimit() {
+        let exercise = makeExercise(inputType: .durationIntensity)
+        let vm = WorkoutSessionViewModel(exercise: exercise)
+        vm.sets[0].duration = "30"
+        vm.sets[0].intensity = "15"
+        vm.sets[0].isCompleted = true
+
+        let record = vm.createValidatedRecord()
+        #expect(record == nil)
+        #expect(vm.validationError != nil)
+    }
+
+    @Test("createValidatedRecord persists intensity value")
+    func intensityPersisted() {
+        let exercise = makeExercise(inputType: .durationIntensity)
+        let vm = WorkoutSessionViewModel(exercise: exercise)
+        vm.sets[0].duration = "30"
+        vm.sets[0].intensity = "7"
+        vm.sets[0].isCompleted = true
+
+        let record = vm.createValidatedRecord()
+        #expect(record != nil)
+        #expect(record?.completedSets.first?.intensity == 7)
+    }
+
+    @Test("createValidatedRecord validates roundsBased input")
+    func roundsBasedValidation() {
+        let exercise = makeExercise(inputType: .roundsBased)
+        let vm = WorkoutSessionViewModel(exercise: exercise)
+        vm.sets[0].reps = "0"
+        vm.sets[0].isCompleted = true
+
+        let record = vm.createValidatedRecord()
+        #expect(record == nil)
+        #expect(vm.validationError != nil)
+    }
 }
