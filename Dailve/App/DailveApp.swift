@@ -16,7 +16,7 @@ struct DailveApp: App {
         )
         do {
             modelContainer = try ModelContainer(
-                for: BodyCompositionRecord.self, ExerciseRecord.self,
+                for: ExerciseRecord.self, BodyCompositionRecord.self, WorkoutSet.self,
                 configurations: config
             )
         } catch {

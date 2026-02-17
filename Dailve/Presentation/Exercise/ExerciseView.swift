@@ -3,8 +3,12 @@ import SwiftData
 
 struct ExerciseView: View {
     @State private var viewModel = ExerciseViewModel()
+    @State private var showingExercisePicker = false
+    @State private var selectedExercise: ExerciseDefinition?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExerciseRecord.date, order: .reverse) private var manualRecords: [ExerciseRecord]
+
+    private let library: ExerciseLibraryQuerying = ExerciseLibraryService()
 
     var body: some View {
         Group {
@@ -17,7 +21,7 @@ struct ExerciseView: View {
                     title: "No Exercises",
                     message: "Record your workouts or sync from Apple Health to track activity.",
                     actionTitle: "Add Exercise",
-                    action: { viewModel.isShowingAddSheet = true }
+                    action: { showingExercisePicker = true }
                 )
             } else {
                 List {
@@ -30,15 +34,23 @@ struct ExerciseView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    viewModel.isShowingAddSheet = true
+                    showingExercisePicker = true
                 } label: {
                     Image(systemName: "plus")
                 }
                 .accessibilityIdentifier("exercise-add-button")
             }
         }
-        .sheet(isPresented: $viewModel.isShowingAddSheet) {
-            AddExerciseSheet(viewModel: viewModel, modelContext: modelContext)
+        .sheet(isPresented: $showingExercisePicker) {
+            ExercisePickerView(
+                library: library,
+                recentExerciseIDs: recentExerciseIDs
+            ) { exercise in
+                selectedExercise = exercise
+            }
+        }
+        .navigationDestination(item: $selectedExercise) { exercise in
+            WorkoutSessionView(exercise: exercise)
         }
         .task {
             viewModel.manualRecords = manualRecords
@@ -48,6 +60,15 @@ struct ExerciseView: View {
             viewModel.manualRecords = newValue
         }
         .navigationTitle("Exercise")
+    }
+
+    private var recentExerciseIDs: [String] {
+        var seen = Set<String>()
+        return manualRecords.compactMap { record in
+            guard let id = record.exerciseDefinitionID, !seen.contains(id) else { return nil }
+            seen.insert(id)
+            return id
+        }
     }
 }
 
@@ -72,6 +93,12 @@ private struct ExerciseRowView: View {
                 Text(item.formattedDuration)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+
+                if let summary = item.setSummary {
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             Spacer()
@@ -89,85 +116,7 @@ private struct ExerciseRowView: View {
     }
 }
 
-// MARK: - Add Sheet
-
-private struct AddExerciseSheet: View {
-    @Bindable var viewModel: ExerciseViewModel
-    let modelContext: ModelContext
-    @Environment(\.dismiss) private var dismiss
-    @State private var saveCount = 0
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                if let error = viewModel.validationError {
-                    Text(error)
-                        .foregroundStyle(.red)
-                        .font(.caption)
-                }
-
-                DatePicker(
-                    "Date & Time",
-                    selection: $viewModel.selectedDate,
-                    in: ...Date(),
-                    displayedComponents: [.date, .hourAndMinute]
-                )
-                .accessibilityIdentifier("exercise-date-picker")
-
-                Picker("Type", selection: $viewModel.newExerciseType) {
-                    ForEach(ExerciseViewModel.exerciseTypes, id: \.self) { type in
-                        Text(type).tag(type)
-                    }
-                }
-
-                LabeledContent("Duration") {
-                    Stepper(
-                        "\(Int(viewModel.newDuration / 60)) min",
-                        value: $viewModel.newDuration,
-                        in: (5 * 60)...(300 * 60),
-                        step: 5 * 60
-                    )
-                }
-
-                TextField("Calories (kcal)", text: $viewModel.newCalories)
-                    .keyboardType(.numberPad)
-
-                TextField("Distance (m)", text: $viewModel.newDistance)
-                    .keyboardType(.decimalPad)
-
-                TextField("Memo", text: $viewModel.newMemo)
-            }
-            .navigationTitle("Add Exercise")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .accessibilityIdentifier("exercise-cancel-button")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if let record = viewModel.createValidatedRecord() {
-                            modelContext.insert(record)
-                            saveCount += 1
-                            viewModel.resetForm()
-                            viewModel.isShowingAddSheet = false
-                        }
-                    }
-                    .disabled(viewModel.newExerciseType.isEmpty)
-                    .accessibilityIdentifier("exercise-save-button")
-                }
-            }
-        }
-        .sensoryFeedback(.success, trigger: saveCount)
-        .onAppear {
-            if viewModel.newExerciseType.isEmpty {
-                viewModel.newExerciseType = ExerciseViewModel.exerciseTypes[0]
-            }
-        }
-    }
-}
-
 #Preview {
     ExerciseView()
-        .modelContainer(for: ExerciseRecord.self, inMemory: true)
+        .modelContainer(for: [ExerciseRecord.self, WorkoutSet.self], inMemory: true)
 }
