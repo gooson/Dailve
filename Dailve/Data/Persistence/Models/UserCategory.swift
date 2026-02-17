@@ -20,11 +20,13 @@ final class UserCategory {
         sortOrder: Int = 0
     ) {
         self.id = UUID()
-        self.name = name
-        self.iconName = iconName
-        self.colorHex = colorHex
+        self.name = String(name.prefix(50))
+        self.iconName = iconName.isEmpty ? "tag.fill" : iconName
+        // Validate hex is exactly 6 hex characters
+        let sanitizedHex = colorHex.replacingOccurrences(of: "#", with: "")
+        self.colorHex = sanitizedHex.count == 6 ? sanitizedHex : "007AFF"
         self.defaultInputTypeRaw = defaultInputType.rawValue
-        self.sortOrder = sortOrder
+        self.sortOrder = max(sortOrder, 0)
         self.createdAt = Date()
     }
 

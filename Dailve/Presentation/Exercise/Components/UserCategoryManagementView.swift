@@ -155,8 +155,11 @@ struct UserCategoryEditView: View {
         }
     }
 
+    private static let maxNameLength = 50
+
     private var isValid: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty && trimmed.count <= Self.maxNameLength
     }
 
     var body: some View {
@@ -233,8 +236,9 @@ struct UserCategoryEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        let trimmedName = String(name.trimmingCharacters(in: .whitespaces).prefix(Self.maxNameLength))
                         onSave(
-                            name.trimmingCharacters(in: .whitespaces),
+                            trimmedName,
                             selectedIcon,
                             selectedColor,
                             selectedInputType

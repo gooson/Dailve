@@ -438,7 +438,12 @@ final class WorkoutSessionViewModel {
         }
         record.sets = workoutSets
 
-        isSaving = false
+        // Caller (View) must call didFinishSaving() after inserting into ModelContext
         return record
+    }
+
+    /// Call from View after successfully inserting record into ModelContext
+    func didFinishSaving() {
+        isSaving = false
     }
 }

@@ -63,8 +63,11 @@ final class ExerciseHistoryViewModel {
             // Volume = sum of (weight × reps) for each set
             var totalVolume = 0.0
             for set in completed {
-                if let w = set.weight, w > 0, let r = set.reps, r > 0 {
-                    totalVolume += w * Double(r)
+                if let w = set.weight, w > 0, w <= 500,
+                   let r = set.reps, r > 0, r <= 1000 {
+                    let vol = w * Double(r)
+                    guard !vol.isNaN && !vol.isInfinite else { continue }
+                    totalVolume += vol
                 }
             }
 

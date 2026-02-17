@@ -27,5 +27,4 @@ enum WeightUnit: String, CaseIterable, Sendable {
         }
     }
 
-    static let storageKey = "com.raftel.dailve.weightUnit"
 }

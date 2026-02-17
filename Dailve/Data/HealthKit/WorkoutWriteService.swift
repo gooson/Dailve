@@ -35,6 +35,13 @@ struct WorkoutWriteService: WorkoutWriting, Sendable {
             throw WorkoutWriteError.invalidDuration
         }
 
+        // Verify HealthKit write authorization for workouts
+        let workoutType = HKObjectType.workoutType()
+        let authStatus = await manager.healthStore.authorizationStatus(for: workoutType)
+        guard authStatus == .sharingAuthorized else {
+            throw WorkoutWriteError.notAuthorized
+        }
+
         let activityType = ExerciseCategory.hkActivityType(
             category: input.category,
             exerciseName: input.exerciseName
@@ -84,12 +91,14 @@ enum WorkoutWriteError: Error, LocalizedError {
     case skippedHealthKitOrigin
     case invalidDuration
     case builderReturnedNil
+    case notAuthorized
 
     var errorDescription: String? {
         switch self {
         case .skippedHealthKitOrigin: "Workout originated from HealthKit, skipping write"
         case .invalidDuration: "Workout duration is out of valid range"
         case .builderReturnedNil: "HKWorkoutBuilder returned nil workout"
+        case .notAuthorized: "HealthKit workout write permission not granted"
         }
     }
 }

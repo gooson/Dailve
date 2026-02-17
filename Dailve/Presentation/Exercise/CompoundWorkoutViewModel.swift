@@ -117,10 +117,15 @@ final class CompoundWorkoutViewModel {
 
         if records.isEmpty {
             validationError = "Complete at least one set in any exercise"
+            isSaving = false
         }
-
-        isSaving = false
+        // When records exist, caller (View) must reset isSaving after insert
         return records
+    }
+
+    /// Call from View after successfully inserting records into ModelContext
+    func didFinishSaving() {
+        isSaving = false
     }
 
     // MARK: - Load Previous Data

@@ -174,3 +174,11 @@
 40. **CloudKit inverse relationship 명시적 설정**: `workoutSet.exerciseRecord = record` — SwiftData가 자동 처리하지만 CloudKit sync 경로에서는 타이밍 이슈 가능. 방어적 코딩
 41. **정수 곱셈 결과 overflow 검증**: `mins * 60` 등 단위 변환 시 `result / divisor == original` 패턴으로 overflow 확인
 42. **도메인 서비스도 자체 입력 범위 검증**: caller의 검증을 신뢰하지 않음. MET(0-30), weight(0-500), duration(0-28800s) 등 물리적 한계 기반 guard
+
+### 2026-02-17: 6-관점 리뷰 전체 수정 교정
+
+43. **`isSaving` 리셋은 View에서 insert 완료 후**: `createValidatedRecord()` → View에서 `modelContext.insert(record)` → `viewModel.didFinishSaving()`순서. ViewModel 내부에서 리셋 금지
+44. **방어 코드도 비즈니스 로직 고려**: `guard !records.isEmpty else { return nil }`이 첫 사용자(모든 근육 회복 상태) 시나리오를 깨뜨림. 테스트로 검증 후 적용
+45. **Collection extension에서 `Swift.max()` 명시적 호출**: `max()` global function이 `Collection.max()` instance method와 이름 충돌. `Swift.max(a, b)` 로 모듈 지정 필수
+46. **Watch `isReachable`은 cached state 대신 computed property**: `WCSession.default.isReachable` 직접 조회로 stale state 방지. `sessionReachabilityDidChange`에서 캐시 업데이트 불필요
+47. **`.onChange(of: array)` 대신 `.onChange(of: array.count)`**: 전체 배열 비교는 O(n). 변경 감지가 count 레벨로 충분하면 count 사용으로 비용 감소

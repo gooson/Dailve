@@ -39,4 +39,13 @@ extension SetType {
         case .failure: .red
         }
     }
+
+    var shortLabel: String {
+        switch self {
+        case .warmup: "W"
+        case .working: "S"
+        case .drop: "D"
+        case .failure: "F"
+        }
+    }
 }

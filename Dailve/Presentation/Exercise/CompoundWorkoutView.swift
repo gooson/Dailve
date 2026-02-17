@@ -59,7 +59,7 @@ struct CompoundWorkoutView: View {
         .animation(DS.Animation.snappy, value: viewModel.isTransitioning)
         .sensoryFeedback(.success, trigger: saveCount)
         .sensoryFeedback(.success, trigger: setTimer.completionCount)
-        .navigationTitle(config.mode == .superset ? "Superset" : "Circuit")
+        .navigationTitle(config.mode.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -100,7 +100,7 @@ struct CompoundWorkoutView: View {
         .sheet(isPresented: $showingShareSheet, onDismiss: { dismiss() }) {
             WorkoutCompletionSheet(
                 shareImage: shareImage,
-                exerciseName: config.mode == .superset ? "Superset" : "Circuit",
+                exerciseName: config.mode.displayName,
                 setCount: viewModel.totalCompletedSets,
                 onDismiss: { dismiss() }
             )
@@ -424,7 +424,7 @@ struct CompoundWorkoutView: View {
         // Build share data from the first (primary) record
         if let primary = records.first {
             let input = ExerciseRecordShareInput(
-                exerciseType: config.mode == .superset ? "Superset" : "Circuit",
+                exerciseType: config.mode.displayName,
                 date: primary.date,
                 duration: elapsedSeconds,
                 bestCalories: records.compactMap(\.bestCalories).reduce(0, +),
@@ -448,6 +448,7 @@ struct CompoundWorkoutView: View {
         for record in records {
             modelContext.insert(record)
         }
+        viewModel.didFinishSaving()
         saveCount += 1
 
         // Fire-and-forget HealthKit write per record (non-blocking)

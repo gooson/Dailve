@@ -14,6 +14,9 @@ final class CustomExercise {
     var customCategoryName: String?
     var createdAt: Date = Date()
 
+    /// Valid MET value range (physiological limits: 0.9 resting to ~30 sprint)
+    static let metValueRange: ClosedRange<Double> = 0.9...30.0
+
     init(
         name: String,
         category: ExerciseCategory,
@@ -25,14 +28,14 @@ final class CustomExercise {
         customCategoryName: String? = nil
     ) {
         self.id = UUID()
-        self.name = name
+        self.name = String(name.prefix(100))
         self.categoryRaw = category.rawValue
         self.inputTypeRaw = inputType.rawValue
         self.primaryMusclesRaw = primaryMuscles.map(\.rawValue)
         self.secondaryMusclesRaw = secondaryMuscles.map(\.rawValue)
         self.equipmentRaw = equipment.rawValue
-        self.metValue = metValue
-        self.customCategoryName = customCategoryName
+        self.metValue = min(max(metValue, Self.metValueRange.lowerBound), Self.metValueRange.upperBound)
+        self.customCategoryName = customCategoryName.map { String($0.prefix(50)) }
         self.createdAt = Date()
     }
 

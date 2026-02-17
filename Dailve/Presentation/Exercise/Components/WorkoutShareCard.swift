@@ -272,15 +272,4 @@ struct WorkoutShareCard: View {
     }
 }
 
-// MARK: - SetType Extension
-
-private extension SetType {
-    var shortLabel: String {
-        switch self {
-        case .warmup: "W"
-        case .working: "S"
-        case .drop: "D"
-        case .failure: "F"
-        }
-    }
-}
+// SetType.shortLabel is defined in ExerciseCategory+View.swift

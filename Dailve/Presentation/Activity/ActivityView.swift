@@ -34,7 +34,7 @@ struct ActivityView: View {
                     )
 
                     // Muscle Activity Summary
-                    MuscleMapSummaryCard()
+                    MuscleMapSummaryCard(records: recentRecords)
 
                     // Today's Metrics
                     todaySection
@@ -97,8 +97,8 @@ struct ActivityView: View {
             viewModel.updateSuggestion(records: recentRecords)
             await viewModel.loadActivityData()
         }
-        .onChange(of: recentRecords) { _, newValue in
-            viewModel.updateSuggestion(records: newValue)
+        .onChange(of: recentRecords.count) { _, _ in
+            viewModel.updateSuggestion(records: recentRecords)
         }
         .navigationTitle("Activity")
     }

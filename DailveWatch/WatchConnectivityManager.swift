@@ -9,7 +9,10 @@ import Observation
 final class WatchConnectivityManager: NSObject {
     static let shared = WatchConnectivityManager()
 
-    private(set) var isReachable = false
+    /// Live reachability check — no cached state, always up-to-date
+    var isReachable: Bool {
+        WCSession.default.isReachable
+    }
 
     /// Active workout state received from iPhone
     private(set) var activeWorkout: WatchWorkoutState?
@@ -82,9 +85,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
-        Task { @MainActor in
-            isReachable = session.isReachable
-        }
+        // No cached state needed — use WCSession.default.isReachable directly
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {

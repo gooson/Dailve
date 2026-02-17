@@ -8,21 +8,10 @@ struct VolumeAnalysisView: View {
     @State private var selectedMuscle: MuscleGroup?
 
     private var weeklyVolume: [MuscleGroup: Int] {
-        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let recentRecords = records.filter { $0.date >= oneWeekAgo }
-
-        var volume: [MuscleGroup: Int] = [:]
+        var volume = records.weeklyMuscleVolume()
+        // Ensure all muscle groups have an entry for display
         for muscle in MuscleGroup.allCases {
-            volume[muscle] = 0
-        }
-        for record in recentRecords {
-            let setCount = record.completedSets.count
-            for muscle in record.primaryMuscles {
-                volume[muscle, default: 0] += setCount
-            }
-            for muscle in record.secondaryMuscles {
-                volume[muscle, default: 0] += max(setCount / 2, 1)
-            }
+            volume[muscle, default: 0] += 0
         }
         return volume
     }
@@ -33,11 +22,7 @@ struct VolumeAnalysisView: View {
     }
 
     private var totalWeeklySets: Int {
-        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        return records
-            .filter { $0.date >= oneWeekAgo }
-            .map { $0.completedSets.count }
-            .reduce(0, +)
+        weeklyVolume.values.reduce(0, +)
     }
 
     private var trainedMuscleCount: Int {

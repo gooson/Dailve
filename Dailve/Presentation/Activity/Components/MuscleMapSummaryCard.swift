@@ -1,27 +1,13 @@
 import SwiftUI
-import SwiftData
 
 /// Compact muscle activity summary for the Activity dashboard.
 /// Shows top 6 muscle groups as horizontal progress bars.
 /// Tapping navigates to the full MuscleMapView.
 struct MuscleMapSummaryCard: View {
-    @Query(sort: \ExerciseRecord.date, order: .reverse) private var records: [ExerciseRecord]
+    let records: [ExerciseRecord]
 
     private var weeklyVolume: [MuscleGroup: Int] {
-        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let recentRecords = records.filter { $0.date >= oneWeekAgo }
-
-        var volume: [MuscleGroup: Int] = [:]
-        for record in recentRecords {
-            let setCount = record.completedSets.count
-            for muscle in record.primaryMuscles {
-                volume[muscle, default: 0] += setCount
-            }
-            for muscle in record.secondaryMuscles {
-                volume[muscle, default: 0] += max(setCount / 2, 1)
-            }
-        }
-        return volume
+        records.weeklyMuscleVolume()
     }
 
     private var topMuscles: [(MuscleGroup, Int)] {
@@ -117,14 +103,14 @@ struct MuscleMapSummaryCard: View {
 
 #Preview("With Data") {
     NavigationStack {
-        MuscleMapSummaryCard()
+        MuscleMapSummaryCard(records: [])
     }
     .modelContainer(for: [ExerciseRecord.self, WorkoutSet.self], inMemory: true)
 }
 
 #Preview("Empty") {
     NavigationStack {
-        MuscleMapSummaryCard()
+        MuscleMapSummaryCard(records: [])
     }
     .modelContainer(for: [ExerciseRecord.self, WorkoutSet.self], inMemory: true)
 }

@@ -12,7 +12,7 @@ final class WorkoutTemplate {
 
     init(name: String, exerciseEntries: [TemplateEntry] = []) {
         self.id = UUID()
-        self.name = name
+        self.name = String(name.prefix(100))
         self.exerciseEntries = exerciseEntries
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -38,9 +38,13 @@ struct TemplateEntry: Codable, Identifiable, Sendable {
     ) {
         self.id = UUID()
         self.exerciseDefinitionID = exerciseDefinitionID
-        self.exerciseName = exerciseName
-        self.defaultSets = defaultSets
-        self.defaultReps = defaultReps
-        self.defaultWeightKg = defaultWeightKg
+        self.exerciseName = String(exerciseName.prefix(100))
+        self.defaultSets = min(max(defaultSets, 1), 20)
+        self.defaultReps = min(max(defaultReps, 1), 100)
+        if let weight = defaultWeightKg {
+            self.defaultWeightKg = min(max(weight, 0), 500)
+        } else {
+            self.defaultWeightKg = nil
+        }
     }
 }

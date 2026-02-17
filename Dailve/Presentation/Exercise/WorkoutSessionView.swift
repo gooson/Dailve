@@ -375,6 +375,7 @@ struct WorkoutSessionView: View {
         shareImage = WorkoutShareService.renderShareImage(data: shareData, weightUnit: weightUnit)
 
         modelContext.insert(record)
+        viewModel.didFinishSaving()
         WorkoutSessionViewModel.clearDraft()
         saveCount += 1
 

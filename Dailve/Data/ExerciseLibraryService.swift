@@ -1,14 +1,5 @@
 import Foundation
 
-protocol ExerciseLibraryQuerying: Sendable {
-    func allExercises() -> [ExerciseDefinition]
-    func exercise(byID id: String) -> ExerciseDefinition?
-    func search(query: String) -> [ExerciseDefinition]
-    func exercises(forMuscle muscle: MuscleGroup) -> [ExerciseDefinition]
-    func exercises(forCategory category: ExerciseCategory) -> [ExerciseDefinition]
-    func exercises(forEquipment equipment: Equipment) -> [ExerciseDefinition]
-}
-
 struct ExerciseLibraryService: ExerciseLibraryQuerying {
     static let shared = ExerciseLibraryService()
 

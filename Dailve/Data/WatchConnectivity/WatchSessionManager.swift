@@ -18,6 +18,9 @@ final class WatchSessionManager: NSObject {
     /// Callback for when Watch sends a completed workout
     var onWorkoutReceived: ((WatchWorkoutUpdate) -> Void)?
 
+    /// Serializes delegate message handling — cancel-before-spawn
+    private var messageHandlerTask: Task<Void, Never>?
+
     private override init() {
         super.init()
     }
@@ -96,7 +99,10 @@ extension WatchSessionManager: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         let messageCopy = message.compactMapValues { $0 as? Data }
         Task { @MainActor in
-            handleDecodedMessage(messageCopy)
+            messageHandlerTask?.cancel()
+            messageHandlerTask = Task { @MainActor in
+                handleDecodedMessage(messageCopy)
+            }
         }
     }
 
@@ -108,7 +114,10 @@ extension WatchSessionManager: WCSessionDelegate {
         let messageCopy = message.compactMapValues { $0 as? Data }
         replyHandler(["status": "received"])
         Task { @MainActor in
-            handleDecodedMessage(messageCopy)
+            messageHandlerTask?.cancel()
+            messageHandlerTask = Task { @MainActor in
+                handleDecodedMessage(messageCopy)
+            }
         }
     }
 }
@@ -120,7 +129,8 @@ extension WatchSessionManager {
         // Handle workout completion from Watch
         if let data = message["workoutComplete"] {
             do {
-                let update = try JSONDecoder().decode(WatchWorkoutUpdate.self, from: data)
+                var update = try JSONDecoder().decode(WatchWorkoutUpdate.self, from: data)
+                update = update.validated()
                 receivedWorkoutUpdate = update
                 onWorkoutReceived?(update)
             } catch {
@@ -131,7 +141,8 @@ extension WatchSessionManager {
         // Handle set completion from Watch
         if let data = message["setCompleted"] {
             do {
-                let update = try JSONDecoder().decode(WatchWorkoutUpdate.self, from: data)
+                var update = try JSONDecoder().decode(WatchWorkoutUpdate.self, from: data)
+                update = update.validated()
                 receivedWorkoutUpdate = update
             } catch {
                 AppLogger.ui.error("Failed to decode Watch set update: \(error.localizedDescription)")
@@ -157,10 +168,18 @@ struct WatchWorkoutState: Codable, Sendable {
 struct WatchWorkoutUpdate: Codable, Sendable {
     let exerciseID: String
     let exerciseName: String
-    let completedSets: [WatchSetData]
+    var completedSets: [WatchSetData]
     let startTime: Date
     let endTime: Date?
-    let heartRateSamples: [WatchHeartRateSample]
+    var heartRateSamples: [WatchHeartRateSample]
+
+    /// Returns a copy with invalid heart rate samples and set data filtered out
+    func validated() -> WatchWorkoutUpdate {
+        var copy = self
+        copy.heartRateSamples = heartRateSamples.filter(\.isValid)
+        copy.completedSets = completedSets.filter(\.isValid)
+        return copy
+    }
 }
 
 struct WatchSetData: Codable, Sendable {
@@ -169,11 +188,25 @@ struct WatchSetData: Codable, Sendable {
     let reps: Int?
     let duration: TimeInterval?
     let isCompleted: Bool
+
+    var isValid: Bool {
+        if let weight, !(0...500).contains(weight) { return false }
+        if let reps, !(0...1000).contains(reps) { return false }
+        if let duration, !(0...28800).contains(duration) { return false }
+        return true
+    }
 }
 
 struct WatchHeartRateSample: Codable, Sendable {
     let bpm: Double
     let timestamp: Date
+
+    /// Valid physiological heart rate range (bpm)
+    static let validRange: ClosedRange<Double> = 20...300
+
+    var isValid: Bool {
+        Self.validRange.contains(bpm)
+    }
 }
 
 /// Compact exercise info for Watch display

@@ -64,10 +64,7 @@ final class ActivityViewModel {
 
         let (exerciseResult, stepsResult, workoutsResult) = await (exerciseTask, stepsTask, workoutsTask)
 
-        guard !Task.isCancelled else {
-            isLoading = false
-            return
-        }
+        guard !Task.isCancelled else { return }
 
         weeklyExerciseMinutes = exerciseResult.weeklyData
         todayExercise = exerciseResult.todayMetric

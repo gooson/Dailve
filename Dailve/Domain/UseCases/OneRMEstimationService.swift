@@ -31,7 +31,9 @@ enum OneRMFormula: String, CaseIterable, Sendable {
             result = weight * 36.0 / denominator
         case .lombardi:
             // 1RM = w × r^0.1
-            result = weight * pow(r, 0.1)
+            let exponent = pow(r, 0.1)
+            guard !exponent.isNaN && !exponent.isInfinite else { return nil }
+            result = weight * exponent
         }
 
         guard !result.isNaN && !result.isInfinite && result > 0 else { return nil }
@@ -78,24 +80,54 @@ struct TrainingZone: Sendable {
 /// Service for computing 1RM estimates and training zones
 struct OneRMEstimationService: Sendable {
 
-    /// Compute full 1RM analysis from workout session summaries
+    /// Compute full 1RM analysis from workout session summaries (single-pass)
     func analyze(sessions: [OneRMSessionInput]) -> OneRMAnalysis {
-        // Find best set across all sessions (highest estimated 1RM via Epley)
+        // Single-pass: find global best AND build history simultaneously
         var bestWeight: Double = 0
         var bestReps: Int = 0
         var bestDate = Date()
         var bestEpley: Double = 0
+        var history: [OneRMHistoryPoint] = []
 
         for session in sessions {
+            var sessionBestW: Double = 0
+            var sessionBestR: Int = 0
+            var sessionBestEpley: Double = 0
+
             for set in session.sets {
-                guard let w = set.weight, w > 0,
+                guard let w = set.weight, w > 0, w <= 500,
                       let r = set.reps, r >= 1, r <= 30 else { continue }
                 if let estimate = OneRMFormula.epley.estimate(weight: w, reps: r),
-                   estimate > bestEpley {
-                    bestEpley = estimate
-                    bestWeight = w
-                    bestReps = r
-                    bestDate = session.date
+                   estimate > sessionBestEpley {
+                    sessionBestEpley = estimate
+                    sessionBestW = w
+                    sessionBestR = r
+                }
+            }
+
+            // Update global best
+            if sessionBestEpley > bestEpley {
+                bestEpley = sessionBestEpley
+                bestWeight = sessionBestW
+                bestReps = sessionBestR
+                bestDate = session.date
+            }
+
+            // Build history point for this session
+            if sessionBestEpley > 0 {
+                let epley = sessionBestEpley
+                let brzycki = OneRMFormula.brzycki.estimate(weight: sessionBestW, reps: sessionBestR) ?? epley
+                let lombardi = OneRMFormula.lombardi.estimate(weight: sessionBestW, reps: sessionBestR) ?? epley
+                let avg = (epley + brzycki + lombardi) / 3.0
+
+                if !avg.isNaN && !avg.isInfinite {
+                    history.append(OneRMHistoryPoint(
+                        date: session.date,
+                        epley: epley,
+                        brzycki: brzycki,
+                        lombardi: lombardi,
+                        average: avg
+                    ))
                 }
             }
         }
@@ -114,40 +146,6 @@ struct OneRMEstimationService: Sendable {
                     ))
                 }
             }
-        }
-
-        // History: best 1RM per session
-        let history = sessions.compactMap { session -> OneRMHistoryPoint? in
-            var sessionBestW: Double = 0
-            var sessionBestR: Int = 0
-            var sessionBestEpley: Double = 0
-
-            for set in session.sets {
-                guard let w = set.weight, w > 0,
-                      let r = set.reps, r >= 1, r <= 30 else { continue }
-                if let e = OneRMFormula.epley.estimate(weight: w, reps: r), e > sessionBestEpley {
-                    sessionBestEpley = e
-                    sessionBestW = w
-                    sessionBestR = r
-                }
-            }
-
-            guard sessionBestEpley > 0 else { return nil }
-
-            let epley = sessionBestEpley
-            let brzycki = OneRMFormula.brzycki.estimate(weight: sessionBestW, reps: sessionBestR) ?? epley
-            let lombardi = OneRMFormula.lombardi.estimate(weight: sessionBestW, reps: sessionBestR) ?? epley
-            let avg = (epley + brzycki + lombardi) / 3.0
-
-            guard !avg.isNaN && !avg.isInfinite else { return nil }
-
-            return OneRMHistoryPoint(
-                date: session.date,
-                epley: epley,
-                brzycki: brzycki,
-                lombardi: lombardi,
-                average: avg
-            )
         }
 
         // Training zones based on best average 1RM

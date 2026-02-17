@@ -45,6 +45,13 @@ struct ExerciseRecordSnapshot: Sendable {
     let completedSetCount: Int
 }
 
+extension ExerciseRecordSnapshot: ExerciseRecordVolumeProviding {
+    var volumeDate: Date { date }
+    var volumeSetCount: Int { completedSetCount }
+    var volumePrimaryMuscles: [MuscleGroup] { primaryMuscles }
+    var volumeSecondaryMuscles: [MuscleGroup] { secondaryMuscles }
+}
+
 /// Recovery-based workout recommendation engine
 ///
 /// Algorithm:
@@ -149,8 +156,7 @@ struct WorkoutRecommendationService: WorkoutRecommending {
 
     func computeFatigueStates(from records: [ExerciseRecordSnapshot]) -> [MuscleFatigueState] {
         let now = Date()
-        let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
-        let recentRecords = records.filter { $0.date >= oneWeekAgo }
+        let volumeByMuscle = records.weeklyMuscleVolume(from: now)
 
         return MuscleGroup.allCases.map { muscle in
             // Find last training date for this muscle
@@ -162,16 +168,6 @@ struct WorkoutRecommendationService: WorkoutRecommending {
             // Compute days since last trained
             let daysSince: Int? = lastTrainedDate.map { date in
                 max(0, Calendar.current.dateComponents([.day], from: date, to: now).day ?? 0)
-            }
-
-            // Weekly volume (weighted: primary = full sets, secondary = half)
-            var weeklyVolume = 0
-            for record in recentRecords {
-                if record.primaryMuscles.contains(muscle) {
-                    weeklyVolume += record.completedSetCount
-                } else if record.secondaryMuscles.contains(muscle) {
-                    weeklyVolume += max(record.completedSetCount / 2, 1)
-                }
             }
 
             // Recovery percentage based on time since last trained
@@ -186,7 +182,7 @@ struct WorkoutRecommendationService: WorkoutRecommending {
             return MuscleFatigueState(
                 muscle: muscle,
                 daysSinceLastTrained: daysSince,
-                weeklyVolume: weeklyVolume,
+                weeklyVolume: volumeByMuscle[muscle] ?? 0,
                 recoveryPercent: recovery
             )
         }
