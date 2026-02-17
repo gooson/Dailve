@@ -11,7 +11,7 @@ final class WorkoutSet {
     var reps: Int?
     var duration: TimeInterval?
     var distance: Double?
-    var intensity: Int?
+    var intensity: Int? = nil
     var isCompleted: Bool = false
     var restDuration: TimeInterval?
 
