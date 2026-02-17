@@ -118,6 +118,7 @@ struct SessionSummaryView: View {
     private func saveWorkoutRecords() {
         guard let template = workoutManager.template else { return }
         let sessionDuration = Swift.max(endDate.timeIntervalSince(startDate), 1)
+        let activeExerciseCount = Double(Swift.max(completedSetsData.filter { !$0.isEmpty }.count, 1))
 
         for (exerciseIndex, setsData) in completedSetsData.enumerated() {
             guard exerciseIndex < template.exerciseEntries.count, !setsData.isEmpty else { continue }
@@ -127,8 +128,8 @@ struct SessionSummaryView: View {
             let record = ExerciseRecord(
                 date: startDate,
                 exerciseType: entry.exerciseName,
-                duration: sessionDuration / Double(Swift.max(completedSetsData.filter { !$0.isEmpty }.count, 1)),
-                calories: activeCalories > 0 ? activeCalories / Double(Swift.max(completedSetsData.filter { !$0.isEmpty }.count, 1)) : nil,
+                duration: sessionDuration / activeExerciseCount,
+                calories: activeCalories > 0 ? activeCalories / activeExerciseCount : nil,
                 exerciseDefinitionID: entry.exerciseDefinitionID,
                 calorieSource: activeCalories > 0 ? .healthKit : .manual
             )

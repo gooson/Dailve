@@ -1,8 +1,8 @@
 import SwiftUI
 import WatchKit
 
-/// 3-Page horizontal TabView for active workout session.
-/// Layout: Controls (left) | Metrics (center) | Now Playing (right)
+/// 3-Page vertical TabView for active workout session.
+/// Layout: Controls (top) | Metrics (center) | Now Playing (bottom)
 struct SessionPagingView: View {
     @Environment(WorkoutManager.self) private var workoutManager
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced

@@ -6,6 +6,8 @@ struct RoutineListView: View {
     @Query(sort: \WorkoutTemplate.updatedAt, order: .reverse) private var templates: [WorkoutTemplate]
     @Environment(WorkoutManager.self) private var workoutManager
 
+    @State private var errorMessage: String?
+
     var body: some View {
         Group {
             if templates.isEmpty {
@@ -15,6 +17,14 @@ struct RoutineListView: View {
             }
         }
         .navigationTitle("Dailve")
+        .alert("Error", isPresented: .init(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     private var routineList: some View {
@@ -55,7 +65,7 @@ struct RoutineListView: View {
                 try await workoutManager.requestAuthorization()
                 try await workoutManager.startWorkout(with: template)
             } catch {
-                print("Failed to start workout: \(error.localizedDescription)")
+                errorMessage = "Failed to start: \(error.localizedDescription)"
             }
         }
     }
