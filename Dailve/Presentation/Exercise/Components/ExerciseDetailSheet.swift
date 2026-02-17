@@ -13,7 +13,8 @@ struct ExerciseDetailSheet: View {
                     headerSection
                     descriptionSection
                     formCuesSection
-                    muscleSection
+                    targetMuscleSection
+                    equipmentInfoSection
                     infoSection
                 }
                 .padding(.horizontal, DS.Spacing.lg)
@@ -47,13 +48,16 @@ struct ExerciseDetailSheet: View {
                 .background(DS.Color.activity.opacity(0.12), in: RoundedRectangle(cornerRadius: DS.Radius.md))
 
             VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
-                Text(exercise.name)
+                Text(exercise.localizedName)
                     .font(.title3.weight(.semibold))
+                Text(exercise.name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack(spacing: DS.Spacing.sm) {
                     Label(exercise.category.displayName, systemImage: categoryIcon)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Label(exercise.equipment.displayName, systemImage: "dumbbell.fill")
+                    Label(exercise.equipment.localizedDisplayName, systemImage: exercise.equipment.iconName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -112,46 +116,63 @@ struct ExerciseDetailSheet: View {
         }
     }
 
-    // MARK: - Muscles
+    // MARK: - Target Muscle Map
 
-    private var muscleSection: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            Text("Muscles")
-                .font(.headline)
+    @ViewBuilder
+    private var targetMuscleSection: some View {
+        if !exercise.primaryMuscles.isEmpty || !exercise.secondaryMuscles.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                Text("타겟 근육")
+                    .font(.headline)
+                ExerciseMuscleMapView(
+                    primaryMuscles: exercise.primaryMuscles,
+                    secondaryMuscles: exercise.secondaryMuscles
+                )
 
-            if !exercise.primaryMuscles.isEmpty {
-                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                    Text("Primary")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    FlowLayout(spacing: DS.Spacing.xs) {
-                        ForEach(exercise.primaryMuscles, id: \.self) { muscle in
-                            Text(muscle.displayName)
-                                .font(.caption.weight(.medium))
-                                .padding(.horizontal, DS.Spacing.sm)
-                                .padding(.vertical, DS.Spacing.xs)
-                                .background(DS.Color.activity.opacity(0.15), in: Capsule())
-                                .foregroundStyle(DS.Color.activity)
-                        }
+                // Legend
+                HStack(spacing: DS.Spacing.lg) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(DS.Color.activity.opacity(0.7))
+                            .frame(width: 12, height: 12)
+                        Text("주동근")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: DS.Spacing.xs) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(DS.Color.activity.opacity(0.25))
+                            .frame(width: 12, height: 12)
+                        Text("보조근")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
+        }
+    }
 
-            if !exercise.secondaryMuscles.isEmpty {
-                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                    Text("Secondary")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    FlowLayout(spacing: DS.Spacing.xs) {
-                        ForEach(exercise.secondaryMuscles, id: \.self) { muscle in
-                            Text(muscle.displayName)
-                                .font(.caption.weight(.medium))
-                                .padding(.horizontal, DS.Spacing.sm)
-                                .padding(.vertical, DS.Spacing.xs)
-                                .background(Color.secondary.opacity(0.15), in: Capsule())
-                                .foregroundStyle(.secondary)
-                        }
+    // MARK: - Equipment Info
+
+    private var equipmentInfoSection: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text("사용 기구")
+                .font(.headline)
+            HStack(spacing: DS.Spacing.md) {
+                EquipmentIllustrationView(equipment: exercise.equipment, size: 56)
+                    .background(DS.Color.activity.opacity(0.06), in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+                VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Text(exercise.equipment.localizedDisplayName)
+                            .font(.subheadline.weight(.medium))
+                        Text(exercise.equipment.displayName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    Text(exercise.equipment.equipmentDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -189,46 +210,5 @@ struct ExerciseDetailSheet: View {
         case .durationIntensity: "Duration + Intensity"
         case .roundsBased: "Rounds"
         }
-    }
-}
-
-// MARK: - Flow Layout
-
-/// Simple horizontal wrapping layout for tags/chips.
-private struct FlowLayout: Layout {
-    let spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = layout(proposal: proposal, subviews: subviews)
-        return result.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = layout(proposal: proposal, subviews: subviews)
-        for (index, position) in result.positions.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
-        }
-    }
-
-    private func layout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
-        let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth && x > 0 {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            positions.append(CGPoint(x: x, y: y))
-            rowHeight = max(rowHeight, size.height)
-            x += size.width + spacing
-        }
-
-        return (CGSize(width: maxWidth, height: y + rowHeight), positions)
     }
 }

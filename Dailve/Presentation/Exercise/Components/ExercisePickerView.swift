@@ -135,8 +135,11 @@ struct ExercisePickerView: View {
                 }
             }
             .sheet(item: $detailExercise) { exercise in
-                ExerciseDetailSheet(exercise: exercise) {
-                    onSelect(exercise)
+                let freshExercise = library.exercise(byID: exercise.id)
+                    ?? customDefinitions.first { $0.id == exercise.id }
+                    ?? exercise
+                ExerciseDetailSheet(exercise: freshExercise) {
+                    onSelect(freshExercise)
                     dismiss()
                 }
                 .presentationDetents([.medium, .large])
@@ -218,13 +221,18 @@ struct ExercisePickerView: View {
                                 .foregroundStyle(DS.Color.activity)
                         }
                     }
+                    if exercise.localizedName != exercise.name {
+                        Text(exercise.name)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                     HStack(spacing: DS.Spacing.xs) {
-                        Text(exercise.primaryMuscles.map(\.displayName).joined(separator: ", "))
+                        Text(exercise.primaryMuscles.map(\.localizedDisplayName).joined(separator: ", "))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text("\u{00B7}")
                             .foregroundStyle(.tertiary)
-                        Text(exercise.equipment.displayName)
+                        Label(exercise.equipment.localizedDisplayName, systemImage: exercise.equipment.iconName)
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -308,7 +316,7 @@ struct ExercisePickerView: View {
                 selectedMuscle = selectedMuscle == muscle ? nil : muscle
             }
         } label: {
-            Text(muscle.displayName)
+            Text(muscle.localizedDisplayName)
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, DS.Spacing.sm)
                 .padding(.vertical, DS.Spacing.xxs)
@@ -331,7 +339,7 @@ struct ExercisePickerView: View {
                 selectedEquipment = selectedEquipment == equipment ? nil : equipment
             }
         } label: {
-            Text(equipment.displayName)
+            Text(equipment.localizedDisplayName)
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, DS.Spacing.sm)
                 .padding(.vertical, DS.Spacing.xxs)
