@@ -450,6 +450,27 @@ struct CompoundWorkoutView: View {
         }
         saveCount += 1
 
+        // Fire-and-forget HealthKit write per record (non-blocking)
+        for record in records where !record.isFromHealthKit {
+            let matchedExercise = config.exercises.first { $0.id == record.exerciseDefinitionID }
+            let input = WorkoutWriteInput(
+                startDate: record.date,
+                duration: record.duration,
+                category: matchedExercise?.category ?? .strength,
+                exerciseName: record.exerciseType,
+                estimatedCalories: record.estimatedCalories,
+                isFromHealthKit: record.isFromHealthKit
+            )
+            Task {
+                do {
+                    let hkID = try await WorkoutWriteService().saveWorkout(input)
+                    record.healthKitWorkoutID = hkID
+                } catch {
+                    AppLogger.healthKit.error("Failed to write compound workout to HealthKit: \(error.localizedDescription)")
+                }
+            }
+        }
+
         if shareImage != nil {
             showingShareSheet = true
         } else {

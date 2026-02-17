@@ -378,6 +378,26 @@ struct WorkoutSessionView: View {
         WorkoutSessionViewModel.clearDraft()
         saveCount += 1
 
+        // Fire-and-forget HealthKit write (non-blocking)
+        if !record.isFromHealthKit {
+            let input = WorkoutWriteInput(
+                startDate: record.date,
+                duration: record.duration,
+                category: exercise.category,
+                exerciseName: exercise.name,
+                estimatedCalories: record.estimatedCalories,
+                isFromHealthKit: record.isFromHealthKit
+            )
+            Task {
+                do {
+                    let hkID = try await WorkoutWriteService().saveWorkout(input)
+                    record.healthKitWorkoutID = hkID
+                } catch {
+                    AppLogger.healthKit.error("Failed to write workout to HealthKit: \(error.localizedDescription)")
+                }
+            }
+        }
+
         if shareImage != nil {
             showingShareSheet = true
         } else {
