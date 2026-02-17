@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Main Watch screen: displays routines synced from iPhone via CloudKit.
+/// Main Watch screen: displays routines synced from iPhone via CloudKit + Quick Start.
 struct RoutineListView: View {
     @Query(sort: \WorkoutTemplate.updatedAt, order: .reverse) private var templates: [WorkoutTemplate]
     @Environment(WorkoutManager.self) private var workoutManager
@@ -28,17 +28,33 @@ struct RoutineListView: View {
     }
 
     private var routineList: some View {
-        List(templates) { template in
-            Button {
-                startWorkout(with: template)
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(template.name)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text("\(template.exerciseEntries.count) exercises")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+        List {
+            // Quick Start entry point
+            Section {
+                NavigationLink {
+                    QuickStartPickerView()
+                } label: {
+                    Label("Quick Start", systemImage: "bolt.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                }
+            }
+
+            // Template list
+            Section("Routines") {
+                ForEach(templates) { template in
+                    Button {
+                        startWorkout(with: template)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(template.name)
+                                .font(.headline)
+                                .lineLimit(1)
+                            Text("\(template.exerciseEntries.count) exercises")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
         }
@@ -55,6 +71,15 @@ struct RoutineListView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            NavigationLink {
+                QuickStartPickerView()
+            } label: {
+                Label("Quick Start", systemImage: "bolt.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .padding(.top, 8)
         }
         .padding()
     }

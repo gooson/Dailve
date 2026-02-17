@@ -84,12 +84,22 @@ final class WorkoutManager: NSObject {
 
     // MARK: - Session Lifecycle
 
+    /// Start a workout from a SwiftData template (template list flow).
     func startWorkout(with template: WorkoutTemplate) async throws {
-        // Snapshot template data as plain struct (avoids holding @Model reference — M6)
         let snapshot = WorkoutSessionTemplate(
             name: template.name,
             entries: template.exerciseEntries
         )
+        try await startSession(with: snapshot)
+    }
+
+    /// Start a workout from a pre-built snapshot (Quick Start flow).
+    func startQuickWorkout(with snapshot: WorkoutSessionTemplate) async throws {
+        try await startSession(with: snapshot)
+    }
+
+    /// Common HK session setup shared by template and quick-start flows.
+    private func startSession(with snapshot: WorkoutSessionTemplate) async throws {
         self.templateSnapshot = snapshot
         self.currentExerciseIndex = 0
         self.currentSetIndex = 0
@@ -124,7 +134,7 @@ final class WorkoutManager: NSObject {
         persistRecoveryState()
 
         // Notify iPhone via WatchConnectivity
-        WatchConnectivityManager.shared.sendWorkoutStarted(templateName: template.name)
+        WatchConnectivityManager.shared.sendWorkoutStarted(templateName: snapshot.name)
     }
 
     func pause() {
