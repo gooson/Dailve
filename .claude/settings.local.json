@@ -50,7 +50,30 @@
       "mcp__serena__check_onboarding_performed",
       "mcp__plugin_serena_serena__read_file",
       "mcp__plugin_serena_serena__activate_project",
-      "mcp__plugin_serena_serena__search_for_pattern"
+      "mcp__plugin_serena_serena__search_for_pattern",
+      "Bash(gh pr merge:*)",
+      "Bash(git stash:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:stormotion.io)",
+      "WebFetch(domain:www.sensai.fit)",
+      "WebFetch(domain:just12reps.com)",
+      "WebFetch(domain:pacompendium.com)",
+      "Bash(git -C /Users/shanks/work/Health checkout -b feature/activity-tab-redesign:*)",
+      "Bash(git -C /Users/shanks/work/Health log --oneline -5)",
+      "Bash(git -C /Users/shanks/work/Health diff --cached --stat)",
+      "Bash(git -C /Users/shanks/work/Health diff main --stat)",
+      "Bash(git -C /Users/shanks/work/Health diff main -- '*.swift' --name-only)",
+      "Bash(xcrun simctl uninstall:*)",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol",
+      "Bash(# Check if there''s a Watch app extension or embedded app structure issue ls -laR /Users/shanks/Library/Developer/Xcode/DerivedData/Dailve-gkjdgdelbayzafgikjojboeoopjl/Build/Products/Debug-watchsimulator/DailveWatch.app/)",
+      "Bash(# Check if the Watch simulator is paired with an iPhone simulator xcrun simctl list pairs)",
+      "Bash(xcrun simctl install:*)",
+      "Bash(/usr/libexec/PlistBuddy:*)",
+      "Bash(xcrun devicectl:*)",
+      "Bash(instruments -s devices:*)",
+      "Bash(echo:*)",
+      "Bash(gh pr review:*)"
     ]
   }
 }

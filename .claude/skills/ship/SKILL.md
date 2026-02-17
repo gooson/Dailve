@@ -47,7 +47,10 @@ GitHub의 PR 머지 API를 통해 머지합니다. **로컬 머지나 자체 스
 1. `git checkout main` 으로 main 브랜치로 전환
 2. `git pull` 으로 머지된 내용을 로컬에 반영
 3. 로컬 feature 브랜치 삭제: `git branch -d {branch}`
-4. 최종 상태를 사용자에게 표시
+4. **환경 파일 동기화**: `.claude/settings.local.json` 변경이 있으면 함께 커밋+push
+   - `git diff --name-only`로 변경 확인
+   - 변경이 있으면 `git add .claude/settings.local.json && git commit -m "chore: sync Claude local settings" && git push`
+5. 최종 상태를 사용자에게 표시
 
 ## 주의사항
 
