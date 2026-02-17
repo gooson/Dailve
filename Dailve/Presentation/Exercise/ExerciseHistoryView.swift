@@ -5,6 +5,7 @@ import Charts
 struct ExerciseHistoryView: View {
     @State private var viewModel: ExerciseHistoryViewModel
     @State private var oneRMAnalysis: OneRMAnalysis?
+    @State private var shareImage: UIImage?
     @AppStorage(WeightUnit.storageKey) private var weightUnitRaw = WeightUnit.kg.rawValue
 
     @Query private var exerciseRecords: [ExerciseRecord]
@@ -46,6 +47,13 @@ struct ExerciseHistoryView: View {
         .onChange(of: exerciseRecords) { _, newValue in
             viewModel.loadHistory(from: newValue)
             updateOneRMAnalysis()
+        }
+        .sheet(item: Binding(
+            get: { shareImage.map { ShareableImage(image: $0) } },
+            set: { if $0 == nil { shareImage = nil } }
+        )) { shareable in
+            ShareImageSheet(image: shareable.image, title: "\(exerciseName) Workout")
+                .presentationDetents([.medium])
         }
     }
 
@@ -269,6 +277,41 @@ struct ExerciseHistoryView: View {
         }
         .padding(DS.Spacing.md)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+        .contextMenu {
+            Button {
+                shareSession(session)
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+
+    private func shareSession(_ session: ExerciseHistoryViewModel.SessionSummary) {
+        // Find the matching ExerciseRecord for this session
+        guard let record = exerciseRecords.first(where: { $0.id == session.id }) else { return }
+        let input = ExerciseRecordShareInput(
+            exerciseType: record.exerciseType,
+            date: record.date,
+            duration: record.duration,
+            bestCalories: record.bestCalories,
+            completedSets: record.completedSets.map { set in
+                ExerciseRecordShareInput.SetInput(
+                    setNumber: set.setNumber,
+                    weight: set.weight,
+                    reps: set.reps,
+                    duration: set.duration,
+                    distance: set.distance,
+                    setType: set.setType
+                )
+            }
+        )
+        let pbString: String? = if let pb = viewModel.personalBest {
+            formattedValue(pb)
+        } else {
+            nil
+        }
+        let data = WorkoutShareService.buildShareData(from: input, personalBest: pbString)
+        shareImage = WorkoutShareService.renderShareImage(data: data, weightUnit: weightUnit)
     }
 
     // MARK: - 1RM

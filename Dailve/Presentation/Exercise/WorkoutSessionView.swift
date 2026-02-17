@@ -12,6 +12,8 @@ struct WorkoutSessionView: View {
     @State private var saveCount = 0
     @State private var elapsedSeconds: TimeInterval = 0
     @State private var sessionTimerTask: Task<Void, Never>?
+    @State private var shareImage: UIImage?
+    @State private var showingShareSheet = false
 
     @Query private var exerciseRecords: [ExerciseRecord]
 
@@ -106,6 +108,15 @@ struct WorkoutSessionView: View {
             Button("OK") { viewModel.validationError = nil }
         } message: {
             Text(viewModel.validationError ?? "")
+        }
+        .sheet(isPresented: $showingShareSheet, onDismiss: { dismiss() }) {
+            WorkoutCompletionSheet(
+                shareImage: shareImage,
+                exerciseName: exercise.localizedName,
+                setCount: viewModel.completedSetCount,
+                onDismiss: { dismiss() }
+            )
+            .presentationDetents([.medium])
         }
     }
 
@@ -358,10 +369,40 @@ struct WorkoutSessionView: View {
 
     private func saveWorkout() {
         guard let record = viewModel.createValidatedRecord(weightUnit: weightUnit) else { return }
+
+        // Build share data before inserting (while we still have ViewModel state)
+        let shareData = buildShareData(from: record)
+        shareImage = WorkoutShareService.renderShareImage(data: shareData, weightUnit: weightUnit)
+
         modelContext.insert(record)
         WorkoutSessionViewModel.clearDraft()
         saveCount += 1
-        dismiss()
+
+        if shareImage != nil {
+            showingShareSheet = true
+        } else {
+            dismiss()
+        }
+    }
+
+    private func buildShareData(from record: ExerciseRecord) -> WorkoutShareData {
+        let input = ExerciseRecordShareInput(
+            exerciseType: record.exerciseType,
+            date: record.date,
+            duration: elapsedSeconds,
+            bestCalories: record.bestCalories,
+            completedSets: record.completedSets.map { set in
+                ExerciseRecordShareInput.SetInput(
+                    setNumber: set.setNumber,
+                    weight: set.weight,
+                    reps: set.reps,
+                    duration: set.duration,
+                    distance: set.distance,
+                    setType: set.setType
+                )
+            }
+        )
+        return WorkoutShareService.buildShareData(from: input)
     }
 
     private func startSessionTimer() {

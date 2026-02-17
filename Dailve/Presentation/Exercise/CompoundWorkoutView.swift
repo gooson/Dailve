@@ -13,6 +13,8 @@ struct CompoundWorkoutView: View {
     @State private var saveCount = 0
     @State private var elapsedSeconds: TimeInterval = 0
     @State private var sessionTimerTask: Task<Void, Never>?
+    @State private var showingShareSheet = false
+    @State private var shareImage: UIImage?
 
     @Query private var exerciseRecords: [ExerciseRecord]
 
@@ -94,6 +96,15 @@ struct CompoundWorkoutView: View {
             Button("OK") { viewModel.validationError = nil }
         } message: {
             Text(viewModel.validationError ?? "")
+        }
+        .sheet(isPresented: $showingShareSheet, onDismiss: { dismiss() }) {
+            WorkoutCompletionSheet(
+                shareImage: shareImage,
+                exerciseName: config.mode == .superset ? "Superset" : "Circuit",
+                setCount: viewModel.totalCompletedSets,
+                onDismiss: { dismiss() }
+            )
+            .presentationDetents([.medium])
         }
     }
 
@@ -409,11 +420,41 @@ struct CompoundWorkoutView: View {
     private func saveAll() {
         let records = viewModel.createAllRecords(weightUnit: weightUnit)
         guard !records.isEmpty else { return }
+
+        // Build share data from the first (primary) record
+        if let primary = records.first {
+            let input = ExerciseRecordShareInput(
+                exerciseType: config.mode == .superset ? "Superset" : "Circuit",
+                date: primary.date,
+                duration: elapsedSeconds,
+                bestCalories: records.compactMap(\.bestCalories).reduce(0, +),
+                completedSets: records.flatMap { record in
+                    record.completedSets.map { set in
+                        ExerciseRecordShareInput.SetInput(
+                            setNumber: set.setNumber,
+                            weight: set.weight,
+                            reps: set.reps,
+                            duration: set.duration,
+                            distance: set.distance,
+                            setType: set.setType
+                        )
+                    }
+                }
+            )
+            let data = WorkoutShareService.buildShareData(from: input)
+            shareImage = WorkoutShareService.renderShareImage(data: data, weightUnit: weightUnit)
+        }
+
         for record in records {
             modelContext.insert(record)
         }
         saveCount += 1
-        dismiss()
+
+        if shareImage != nil {
+            showingShareSheet = true
+        } else {
+            dismiss()
+        }
     }
 
     // MARK: - Timer
