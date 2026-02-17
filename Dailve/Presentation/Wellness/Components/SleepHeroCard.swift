@@ -7,6 +7,9 @@ struct SleepHeroCard: View {
     let stageBreakdown: [(stage: SleepStage.Stage, minutes: Double)]
 
     var body: some View {
+        let totalStageMinutes = stageBreakdown.map(\.minutes).reduce(0, +)
+        let visibleStages = stageBreakdown.filter { $0.minutes > 0 }
+
         StandardCard {
             VStack(spacing: DS.Spacing.lg) {
                 // Top row: Ring + Stats
@@ -47,13 +50,13 @@ struct SleepHeroCard: View {
                 }
 
                 // Stage breakdown bar
-                let totalStageMinutes = stageBreakdown.map(\.minutes).reduce(0, +)
                 if totalStageMinutes > 0 {
                     VStack(spacing: DS.Spacing.sm) {
                         GeometryReader { geo in
                             HStack(spacing: 2) {
-                                ForEach(stageBreakdown.filter { $0.minutes > 0 }, id: \.stage.rawValue) { item in
+                                ForEach(visibleStages, id: \.stage.rawValue) { item in
                                     let fraction = item.minutes / totalStageMinutes
+                                    // Ensure minimum 4pt width for visibility
                                     RoundedRectangle(cornerRadius: 3)
                                         .fill(item.stage.color.gradient)
                                         .frame(width: Swift.max(geo.size.width * fraction - 2, 4))

@@ -4,6 +4,9 @@ struct BodySnapshotCard: View {
     let latestItem: BodyCompositionListItem
     let previousItem: BodyCompositionListItem?
 
+    /// Minimum absolute change to display (noise floor for scale precision)
+    private static let changeDisplayThreshold = 0.05
+
     var body: some View {
         StandardCard {
             VStack(spacing: DS.Spacing.md) {
@@ -66,7 +69,7 @@ struct BodySnapshotCard: View {
             }
 
             if let change {
-                changeLabel(change, unit: unit)
+                changeLabel(change)
             } else {
                 Text("—")
                     .font(.caption2)
@@ -76,12 +79,12 @@ struct BodySnapshotCard: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func changeLabel(_ change: Double, unit: String) -> some View {
+    private func changeLabel(_ change: Double) -> some View {
         let absChange = abs(change)
         let text: String
         let color: Color
 
-        if absChange < 0.05 {
+        if absChange < Self.changeDisplayThreshold {
             text = "—"
             color = .secondary
         } else if change > 0 {

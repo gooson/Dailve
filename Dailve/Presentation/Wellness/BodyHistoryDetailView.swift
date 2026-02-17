@@ -6,6 +6,10 @@ struct BodyHistoryDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BodyCompositionRecord.date, order: .reverse) private var records: [BodyCompositionRecord]
 
+    @State private var recordToDelete: BodyCompositionRecord?
+    @State private var isShowingDeleteConfirmation = false
+    @State private var isShowingEditSheet = false
+
     private var allItems: [BodyCompositionListItem] {
         viewModel.allItems(manualRecords: records)
     }
@@ -31,14 +35,25 @@ struct BodyHistoryDetailView: View {
         }
         .navigationTitle("Body Records")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $viewModel.isShowingEditSheet) {
+        .alert("Delete Record?", isPresented: $isShowingDeleteConfirmation, presenting: recordToDelete) { record in
+            Button("Delete", role: .destructive) {
+                modelContext.delete(record)
+                recordToDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                recordToDelete = nil
+            }
+        } message: { record in
+            Text("This record from \(record.date.formatted(date: .abbreviated, time: .omitted)) will be permanently deleted from all your devices.")
+        }
+        .sheet(isPresented: $isShowingEditSheet) {
             if let record = viewModel.editingRecord {
                 BodyCompositionFormSheet(
                     viewModel: viewModel,
                     isEdit: true,
                     onSave: {
                         if viewModel.applyUpdate(to: record) {
-                            viewModel.isShowingEditSheet = false
+                            isShowingEditSheet = false
                             viewModel.editingRecord = nil
                         }
                     }
@@ -88,11 +103,13 @@ struct BodyHistoryDetailView: View {
             if item.source == .manual, let record = findManualRecord(id: item.id) {
                 Button {
                     viewModel.startEditing(record)
+                    isShowingEditSheet = true
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
                 Button(role: .destructive) {
-                    modelContext.delete(record)
+                    recordToDelete = record
+                    isShowingDeleteConfirmation = true
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }

@@ -8,9 +8,7 @@ struct WellnessView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BodyCompositionRecord.date, order: .reverse) private var records: [BodyCompositionRecord]
 
-    private var bodyItems: [BodyCompositionListItem] {
-        bodyViewModel.allItems(manualRecords: records)
-    }
+    @State private var cachedBodyItems: [BodyCompositionListItem] = []
 
     private var isFullyEmpty: Bool {
         let sleepEmpty = sleepViewModel.weeklyData.isEmpty && sleepViewModel.sleepScore == 0
@@ -84,15 +82,26 @@ struct WellnessView: View {
                 )
             }
         }
+        .navigationDestination(for: BodyHistoryDestination.self) { _ in
+            BodyHistoryDetailView(viewModel: bodyViewModel)
+        }
         .refreshable {
             async let sleepLoad: () = sleepViewModel.loadData()
             async let bodyLoad: () = bodyViewModel.loadHealthKitData()
             _ = await (sleepLoad, bodyLoad)
+            refreshBodyItemsCache()
         }
         .task {
             async let sleepLoad: () = sleepViewModel.loadData()
             async let bodyLoad: () = bodyViewModel.loadHealthKitData()
             _ = await (sleepLoad, bodyLoad)
+            refreshBodyItemsCache()
+        }
+        .onChange(of: records.count) { _, _ in
+            refreshBodyItemsCache()
+        }
+        .onChange(of: bodyViewModel.healthKitItems.count) { _, _ in
+            refreshBodyItemsCache()
         }
         .navigationTitle("Wellness")
     }
@@ -102,6 +111,13 @@ struct WellnessView: View {
     private var scrollContent: some View {
         ScrollView {
             VStack(spacing: DS.Spacing.xl) {
+                // Error banner (non-blocking)
+                if let error = sleepViewModel.errorMessage {
+                    errorBanner(error) {
+                        Task { await sleepViewModel.loadData() }
+                    }
+                }
+
                 sleepSection
                 bodySection
             }
@@ -159,17 +175,16 @@ struct WellnessView: View {
 
     @ViewBuilder
     private var bodySection: some View {
-        let items = bodyItems
-        let hasBodyData = !items.isEmpty
+        let items = cachedBodyItems
 
-        if hasBodyData {
+        if !items.isEmpty {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 Text("Body")
                     .font(DS.Typography.sectionTitle)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let latest = items.first {
-                    let previous = findItemSevenDaysAgo(items: items)
+                    let previous = findItemNearSevenDaysAgo(items: items)
                     BodySnapshotCard(latestItem: latest, previousItem: previous)
                 }
 
@@ -191,9 +206,6 @@ struct WellnessView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
                 }
                 .buttonStyle(.plain)
-            }
-            .navigationDestination(for: BodyHistoryDestination.self) { _ in
-                BodyHistoryDetailView(viewModel: bodyViewModel)
             }
         } else {
             miniEmptyState(
@@ -231,7 +243,6 @@ struct WellnessView: View {
                 }
                 .frame(height: 120)
 
-                // Average summary
                 let totalMinutes = sleepViewModel.weeklyData.map(\.totalMinutes).reduce(0, +)
                 let avgMinutes = sleepViewModel.weeklyData.isEmpty ? 0 : totalMinutes / Double(sleepViewModel.weeklyData.count)
                 Text("Avg \(avgMinutes.hoursMinutesFormatted)")
@@ -242,14 +253,15 @@ struct WellnessView: View {
     }
 
     private func weightTrendChart(_ weightItems: [BodyCompositionListItem]) -> some View {
-        let sorted = weightItems.sorted { $0.date < $1.date }
+        // Items are sorted descending; reverse for chronological chart display
+        let chronological = Array(weightItems.reversed())
 
         return StandardCard {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 Text("Weight Trend")
                     .font(.headline)
 
-                Chart(sorted, id: \.id) { item in
+                Chart(chronological, id: \.id) { item in
                     if let weight = item.weight {
                         LineMark(
                             x: .value("Date", item.date, unit: .day),
@@ -273,6 +285,26 @@ struct WellnessView: View {
 
     // MARK: - Helpers
 
+    private func errorBanner(_ message: String, retry: @escaping () -> Void) -> some View {
+        InlineCard {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(DS.Color.caution)
+
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                Spacer()
+
+                Button("Retry", action: retry)
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+        }
+    }
+
     private func miniEmptyState(icon: String, message: String) -> some View {
         VStack(spacing: DS.Spacing.sm) {
             Image(systemName: icon)
@@ -287,13 +319,23 @@ struct WellnessView: View {
         .padding(.vertical, DS.Spacing.xxl)
     }
 
-    private func findItemSevenDaysAgo(items: [BodyCompositionListItem]) -> BodyCompositionListItem? {
+    /// Maximum age difference (in days) from the 7-day target to accept as comparison data.
+    private static let comparisonWindowDays = 10
+
+    private func findItemNearSevenDaysAgo(items: [BodyCompositionListItem]) -> BodyCompositionListItem? {
         guard let latest = items.first else { return nil }
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: latest.date) ?? latest.date
-        // Find the item closest to 7 days ago
-        return items.dropFirst().min(by: {
-            abs($0.date.timeIntervalSince(sevenDaysAgo)) < abs($1.date.timeIntervalSince(sevenDaysAgo))
-        })
+        let threshold = Calendar.current.date(byAdding: .day, value: -Self.comparisonWindowDays, to: latest.date) ?? latest.date
+        // Only consider items within the comparison window to avoid misleading stale comparisons
+        return items.dropFirst()
+            .filter { $0.date >= threshold }
+            .min(by: {
+                abs($0.date.timeIntervalSince(sevenDaysAgo)) < abs($1.date.timeIntervalSince(sevenDaysAgo))
+            })
+    }
+
+    private func refreshBodyItemsCache() {
+        cachedBodyItems = bodyViewModel.allItems(manualRecords: records)
     }
 }
 
