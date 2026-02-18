@@ -21,6 +21,13 @@ struct ConfirmDeleteRecordModifier: ViewModifier {
                         recordToDelete = nil
                         return
                     }
+                    // Delete linked HKWorkout from HealthKit (fire-and-forget)
+                    if let workoutID = record.healthKitWorkoutID, !workoutID.isEmpty {
+                        Task {
+                            let deleteService = WorkoutDeleteService(manager: .shared)
+                            try? await deleteService.deleteWorkout(uuid: workoutID)
+                        }
+                    }
                     modelContext.delete(record)
                     try? modelContext.save()
                     recordToDelete = nil

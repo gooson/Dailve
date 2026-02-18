@@ -58,6 +58,11 @@ struct ExerciseHistoryView: View {
                 .presentationDetents([.medium])
         }
         .confirmDeleteRecord($recordToDelete, context: modelContext)
+        .navigationDestination(for: UUID.self) { sessionID in
+            if let record = exerciseRecords.first(where: { $0.id == sessionID }) {
+                ExerciseSessionDetailView(record: record)
+            }
+        }
     }
 
     // MARK: - Metric Picker
@@ -246,40 +251,43 @@ struct ExerciseHistoryView: View {
     }
 
     private func sessionRow(_ session: ExerciseHistoryViewModel.SessionSummary) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
-                Text(session.date, style: .date)
-                    .font(.subheadline.weight(.medium))
-                HStack(spacing: DS.Spacing.xs) {
-                    Text("\(session.setCount) sets")
-                    if let maxW = session.maxWeight {
-                        Text("\u{00B7}")
-                        Text("\(formattedWeight(maxW)) \(weightUnit.displayName)")
+        NavigationLink(value: session.id) {
+            HStack {
+                VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
+                    Text(session.date, style: .date)
+                        .font(.subheadline.weight(.medium))
+                    HStack(spacing: DS.Spacing.xs) {
+                        Text("\(session.setCount) sets")
+                        if let maxW = session.maxWeight {
+                            Text("\u{00B7}")
+                            Text("\(formattedWeight(maxW)) \(weightUnit.displayName)")
+                        }
+                        if session.totalReps > 0 {
+                            Text("\u{00B7}")
+                            Text("\(session.totalReps) reps")
+                        }
                     }
-                    if session.totalReps > 0 {
-                        Text("\u{00B7}")
-                        Text("\(session.totalReps) reps")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if let oneRM = session.estimatedOneRM {
+                    VStack(alignment: .trailing, spacing: DS.Spacing.xxs) {
+                        Text("1RM")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        Text(formattedWeight(oneRM))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(DS.Color.activity)
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-
-            Spacer()
-
-            if let oneRM = session.estimatedOneRM {
-                VStack(alignment: .trailing, spacing: DS.Spacing.xxs) {
-                    Text("1RM")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                    Text(formattedWeight(oneRM))
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(DS.Color.activity)
-                }
-            }
+            .padding(DS.Spacing.md)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
         }
-        .padding(DS.Spacing.md)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+        .buttonStyle(.plain)
         .contextMenu {
             Button {
                 shareSession(session)

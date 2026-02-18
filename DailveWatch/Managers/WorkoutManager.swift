@@ -21,6 +21,10 @@ final class WorkoutManager: NSObject {
     private(set) var isSessionEnded = false
     private(set) var startDate: Date?
 
+    /// UUID of the saved HKWorkout, captured after finishWorkout().
+    /// Used to link ExerciseRecord.healthKitWorkoutID for HealthKit data retrieval.
+    private(set) var healthKitWorkoutUUID: String?
+
     /// True when session was recovered from crash/termination without template data.
     private(set) var isRecoveredSession = false
 
@@ -197,6 +201,7 @@ final class WorkoutManager: NSObject {
         isSessionEnded = false
         isRecoveredSession = false
         startDate = nil
+        healthKitWorkoutUUID = nil
         clearRecoveryState()
     }
 
@@ -287,7 +292,8 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                 WatchConnectivityManager.shared.sendWorkoutEnded()
                 do {
                     try await builder?.endCollection(at: date)
-                    try await builder?.finishWorkout()
+                    let workout = try await builder?.finishWorkout()
+                    healthKitWorkoutUUID = workout?.uuid.uuidString
                 } catch {
                     print("Failed to finish workout: \(error.localizedDescription)")
                 }
