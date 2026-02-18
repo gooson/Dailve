@@ -2,7 +2,8 @@ import SwiftUI
 import WatchKit
 
 /// Dedicated sheet for weight/reps input with Digital Crown support.
-/// Crown controls weight, +/- buttons control reps.
+/// Crown controls weight, +/- buttons adjust reps.
+/// Layout is compact to fit all elements on screen without scrolling.
 struct SetInputSheet: View {
     @Binding var weight: Double
     @Binding var reps: Int
@@ -12,12 +13,11 @@ struct SetInputSheet: View {
     @State private var lastHapticDate: Date = .distantPast
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             // Weight section
             weightSection
 
             Divider()
-                .padding(.vertical, 2)
 
             // Reps section
             repsSection
@@ -26,12 +26,10 @@ struct SetInputSheet: View {
             Button("Done") { dismiss() }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                .frame(minHeight: 36)
         }
         .padding(.horizontal, 8)
         .focusable()
         .digitalCrownRotation($weight, from: 0, through: 500, by: 2.5, sensitivity: .medium)
-        // P1: Clamp weight to valid range — `through` is a soft limit (correction #22)
         .onChange(of: weight) { _, newValue in
             let clamped = min(max(newValue, 0), 500)
             if clamped != newValue {
@@ -43,17 +41,17 @@ struct SetInputSheet: View {
     // MARK: - Weight Section
 
     private var weightSection: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             Text("Weight (kg)")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
             Text("\(weight, specifier: "%.1f")")
-                .font(.system(.title, design: .rounded).monospacedDigit().bold())
+                .font(.system(.title2, design: .rounded).monospacedDigit().bold())
                 .foregroundStyle(.green)
                 .contentTransition(.numericText())
 
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 weightButton("-5", delta: -5)
                 weightButton("-2.5", delta: -2.5)
                 weightButton("+2.5", delta: 2.5)
@@ -72,7 +70,7 @@ struct SetInputSheet: View {
         } label: {
             Text(label)
                 .font(.caption2.weight(.medium))
-                .frame(minWidth: 36, minHeight: 28)
+                .frame(minWidth: 34, minHeight: 24)
         }
         .buttonStyle(.bordered)
         .tint(.gray)
@@ -81,44 +79,43 @@ struct SetInputSheet: View {
     // MARK: - Reps Section
 
     private var repsSection: some View {
-        VStack(spacing: 6) {
-            Text("Reps")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 16) {
-                Button {
-                    if reps > 0 {
-                        reps -= 1
-                        playDebouncedHaptic()
-                    }
-                } label: {
-                    Text("-")
-                        .font(.title3.weight(.semibold))
-                        .frame(minWidth: 44, minHeight: 44)
+        HStack(spacing: 12) {
+            Button {
+                if reps > 0 {
+                    reps -= 1
+                    playDebouncedHaptic()
                 }
-                .buttonStyle(.bordered)
-                .tint(.gray)
+            } label: {
+                Text("-")
+                    .font(.title3.weight(.semibold))
+                    .frame(minWidth: 40, minHeight: 40)
+            }
+            .buttonStyle(.bordered)
+            .tint(.gray)
 
+            VStack(spacing: 1) {
                 Text("\(reps)")
-                    .font(.system(.title, design: .rounded).monospacedDigit().bold())
+                    .font(.system(.title2, design: .rounded).monospacedDigit().bold())
                     .foregroundStyle(.green)
                     .contentTransition(.numericText())
-                    .frame(minWidth: 40)
-
-                Button {
-                    if reps < 100 {
-                        reps += 1
-                        playDebouncedHaptic()
-                    }
-                } label: {
-                    Text("+")
-                        .font(.title3.weight(.semibold))
-                        .frame(minWidth: 44, minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                .tint(.gray)
+                Text("reps")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
+            .frame(minWidth: 50)
+
+            Button {
+                if reps < 100 {
+                    reps += 1
+                    playDebouncedHaptic()
+                }
+            } label: {
+                Text("+")
+                    .font(.title3.weight(.semibold))
+                    .frame(minWidth: 40, minHeight: 40)
+            }
+            .buttonStyle(.bordered)
+            .tint(.gray)
         }
     }
 
