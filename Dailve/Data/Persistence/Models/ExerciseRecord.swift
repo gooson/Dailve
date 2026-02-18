@@ -23,6 +23,8 @@ final class ExerciseRecord {
     var equipmentRaw: String?
     var estimatedCalories: Double?
     var calorieSourceRaw: String = CalorieSource.manual.rawValue
+    /// User-rated perceived exertion (1-10). nil means user skipped.
+    var rpe: Int?
 
     init(
         date: Date = Date(),
@@ -38,7 +40,8 @@ final class ExerciseRecord {
         secondaryMuscles: [MuscleGroup] = [],
         equipment: Equipment? = nil,
         estimatedCalories: Double? = nil,
-        calorieSource: CalorieSource = .manual
+        calorieSource: CalorieSource = .manual,
+        rpe: Int? = nil
     ) {
         self.id = UUID()
         self.date = date
@@ -56,6 +59,7 @@ final class ExerciseRecord {
         self.equipmentRaw = equipment?.rawValue
         self.estimatedCalories = estimatedCalories
         self.calorieSourceRaw = calorieSource.rawValue
+        self.rpe = rpe
     }
 
     // MARK: - Computed Accessors

@@ -12,12 +12,15 @@ final class ActivityViewModel {
     var todayExercise: HealthMetric?
     var todaySteps: HealthMetric?
     var recentWorkouts: [WorkoutSummary] = []
+    var trainingLoadData: [TrainingLoadDataPoint] = []
     var isLoading = false
     var errorMessage: String?
     var workoutSuggestion: WorkoutSuggestion?
 
     private let workoutService: WorkoutQuerying
     private let stepsService: StepsQuerying
+    private let hrvService: HRVQuerying
+    private let effortScoreService: EffortScoreService
     private let recommendationService: WorkoutRecommending
     private let library: ExerciseLibraryQuerying
 
@@ -30,6 +33,8 @@ final class ActivityViewModel {
     ) {
         self.workoutService = workoutService ?? WorkoutQueryService(manager: healthKitManager)
         self.stepsService = stepsService ?? StepsQueryService(manager: healthKitManager)
+        self.hrvService = HRVQueryService(manager: healthKitManager)
+        self.effortScoreService = EffortScoreService(manager: healthKitManager)
         self.recommendationService = recommendationService ?? WorkoutRecommendationService()
         self.library = library ?? ExerciseLibraryService.shared
     }
@@ -57,12 +62,15 @@ final class ActivityViewModel {
         isLoading = true
         errorMessage = nil
 
-        // 3 independent queries — parallel via async let
+        // 4 independent queries — parallel via async let
         async let exerciseTask = safeExerciseFetch()
         async let stepsTask = safeStepsFetch()
         async let workoutsTask = safeWorkoutsFetch()
+        async let trainingLoadTask = safeTrainingLoadFetch()
 
-        let (exerciseResult, stepsResult, workoutsResult) = await (exerciseTask, stepsTask, workoutsTask)
+        let (exerciseResult, stepsResult, workoutsResult, loadResult) = await (
+            exerciseTask, stepsTask, workoutsTask, trainingLoadTask
+        )
 
         guard !Task.isCancelled else { return }
 
@@ -71,6 +79,7 @@ final class ActivityViewModel {
         weeklySteps = stepsResult.weeklyData
         todaySteps = stepsResult.todayMetric
         recentWorkouts = workoutsResult
+        trainingLoadData = loadResult
 
         isLoading = false
     }
@@ -188,6 +197,84 @@ final class ActivityViewModel {
             return try await workoutService.fetchWorkouts(days: 7)
         } catch {
             AppLogger.ui.error("Activity workouts fetch failed: \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    // MARK: - Training Load (28-day)
+
+    private func safeTrainingLoadFetch() async -> [TrainingLoadDataPoint] {
+        do {
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            guard let start = calendar.date(byAdding: .day, value: -27, to: today) else {
+                return []
+            }
+
+            // Fetch workouts and resting HR in parallel
+            async let workoutsTask = workoutService.fetchWorkouts(start: start, end: Date())
+            async let rhrTask = hrvService.fetchLatestRestingHeartRate(withinDays: 30)
+
+            let (workouts, rhrResult) = try await (workoutsTask, rhrTask)
+
+            let restingHR = rhrResult?.value
+            // Estimate max HR from 220-age formula; fallback to 190
+            let maxHR: Double = 190
+
+            // Group workouts by day
+            var dailyWorkouts: [Date: [WorkoutSummary]] = [:]
+            for workout in workouts {
+                let dayStart = calendar.startOfDay(for: workout.date)
+                dailyWorkouts[dayStart, default: []].append(workout)
+            }
+
+            // Build 28-day data
+            var result: [TrainingLoadDataPoint] = []
+            for dayOffset in (0..<28).reversed() {
+                guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { continue }
+                let dayStart = calendar.startOfDay(for: date)
+                let dayWorkouts = dailyWorkouts[dayStart] ?? []
+
+                if dayWorkouts.isEmpty {
+                    result.append(TrainingLoadDataPoint(date: dayStart, load: 0, source: nil))
+                    continue
+                }
+
+                var dailyLoad = 0.0
+                var bestSource: TrainingLoad.LoadSource?
+                for workout in dayWorkouts {
+                    let durationMinutes = workout.duration / 60.0
+                    guard durationMinutes > 0, durationMinutes.isFinite else { continue }
+
+                    if let source = TrainingLoadService.calculateLoad(
+                        effortScore: workout.effortScore,
+                        rpe: nil,
+                        durationMinutes: durationMinutes,
+                        heartRateAvg: workout.heartRateAvg,
+                        restingHR: restingHR,
+                        maxHR: maxHR
+                    ) {
+                        let load = TrainingLoadService.computeLoadValue(
+                            source: source,
+                            effortScore: workout.effortScore,
+                            rpe: nil,
+                            durationMinutes: durationMinutes,
+                            heartRateAvg: workout.heartRateAvg,
+                            restingHR: restingHR,
+                            maxHR: maxHR
+                        )
+                        guard load.isFinite, !load.isNaN else { continue }
+                        dailyLoad += load
+                        bestSource = bestSource ?? source
+                    }
+                }
+
+                result.append(TrainingLoadDataPoint(date: dayStart, load: dailyLoad, source: bestSource))
+            }
+
+            return result
+        } catch {
+            AppLogger.ui.error("Training load fetch failed: \(error.localizedDescription)")
             return []
         }
     }

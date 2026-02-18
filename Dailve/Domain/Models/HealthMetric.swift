@@ -74,6 +74,7 @@ struct HeartRateSummary: Sendable {
 struct WorkoutSummary: Identifiable, Sendable {
     let id: String
     let type: String
+    let activityType: WorkoutActivityType
     let duration: TimeInterval
     let calories: Double?
     let distance: Double?
@@ -81,28 +82,75 @@ struct WorkoutSummary: Identifiable, Sendable {
     /// Whether this workout was created by this app (resolved at Data layer from HealthKit source metadata).
     let isFromThisApp: Bool
 
-    // Explicit init provides default `false` for isFromThisApp, supporting backward
-    // compatibility with existing call sites that don't specify app ownership.
+    // MARK: - Rich data (populated from HKWorkout statistics/metadata)
+
+    let heartRateAvg: Double?
+    let heartRateMax: Double?
+    let heartRateMin: Double?
+    let averagePace: Double?        // seconds per kilometer (running/walking)
+    let averageSpeed: Double?       // meters per second (cycling etc.)
+    let elevationAscended: Double?  // meters
+    let weatherTemperature: Double? // celsius
+    let weatherCondition: Int?      // HKWeatherCondition rawValue
+    let weatherHumidity: Double?    // 0-100 percent
+    let isIndoor: Bool?
+    let effortScore: Double?        // 1-10 (user-rated or estimated)
+    let stepCount: Double?
+
+    // MARK: - Achievement flags (set by PR/milestone detection)
+
+    var milestoneDistance: MilestoneDistance?
+    var isPersonalRecord: Bool
+    var personalRecordTypes: [PersonalRecordType]
+
     init(
-        id: String, type: String, duration: TimeInterval,
+        id: String, type: String, activityType: WorkoutActivityType = .other,
+        duration: TimeInterval,
         calories: Double?, distance: Double?, date: Date,
-        isFromThisApp: Bool = false
+        isFromThisApp: Bool = false,
+        heartRateAvg: Double? = nil, heartRateMax: Double? = nil, heartRateMin: Double? = nil,
+        averagePace: Double? = nil, averageSpeed: Double? = nil,
+        elevationAscended: Double? = nil,
+        weatherTemperature: Double? = nil, weatherCondition: Int? = nil,
+        weatherHumidity: Double? = nil,
+        isIndoor: Bool? = nil,
+        effortScore: Double? = nil,
+        stepCount: Double? = nil,
+        milestoneDistance: MilestoneDistance? = nil,
+        isPersonalRecord: Bool = false,
+        personalRecordTypes: [PersonalRecordType] = []
     ) {
         self.id = id
         self.type = type
+        self.activityType = activityType
         self.duration = duration
         self.calories = calories
         self.distance = distance
         self.date = date
         self.isFromThisApp = isFromThisApp
+        self.heartRateAvg = heartRateAvg
+        self.heartRateMax = heartRateMax
+        self.heartRateMin = heartRateMin
+        self.averagePace = averagePace
+        self.averageSpeed = averageSpeed
+        self.elevationAscended = elevationAscended
+        self.weatherTemperature = weatherTemperature
+        self.weatherCondition = weatherCondition
+        self.weatherHumidity = weatherHumidity
+        self.isIndoor = isIndoor
+        self.effortScore = effortScore
+        self.stepCount = stepCount
+        self.milestoneDistance = milestoneDistance
+        self.isPersonalRecord = isPersonalRecord
+        self.personalRecordTypes = personalRecordTypes
     }
 
     /// Whether this workout type primarily measures distance.
     var isDistanceBased: Bool {
-        Self.isDistanceBasedType(type.lowercased())
+        activityType.isDistanceBased
     }
 
-    /// Whether the given lowercased workout type primarily measures distance.
+    /// Whether the given lowercased workout type primarily measures distance (legacy).
     static func isDistanceBasedType(_ type: String) -> Bool {
         switch type {
         case "running", "cycling", "walking", "hiking", "swimming":
@@ -112,7 +160,7 @@ struct WorkoutSummary: Identifiable, Sendable {
         }
     }
 
-    /// Maps workout type name to SF Symbol.
+    /// Maps workout type name to SF Symbol (legacy — prefer activityType-based lookup).
     static func iconName(for type: String) -> String {
         switch type.lowercased() {
         case "running":     "figure.run"
