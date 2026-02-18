@@ -5,11 +5,10 @@ import SwiftData
 struct RoutineListView: View {
     @Query(sort: \WorkoutTemplate.updatedAt, order: .reverse) private var templates: [WorkoutTemplate]
     @Environment(WorkoutManager.self) private var workoutManager
+    @Environment(WatchConnectivityManager.self) private var connectivity
 
     @State private var errorMessage: String?
     @State private var isStartingWorkout = false
-
-    private var connectivity: WatchConnectivityManager { .shared }
 
     var body: some View {
         Group {
@@ -20,6 +19,10 @@ struct RoutineListView: View {
             }
         }
         .navigationTitle("Dailve")
+        // P1: Reset isStartingWorkout when view reappears (e.g. after workout ends)
+        .onAppear {
+            isStartingWorkout = false
+        }
         .overlay {
             if isStartingWorkout {
                 startingOverlay
@@ -113,7 +116,7 @@ struct RoutineListView: View {
             case .synced(let date):
                 Image(systemName: "checkmark.circle")
                     .foregroundStyle(.green)
-                Text(syncTimeLabel(from: date))
+                Text(Self.syncTimeLabel(from: date))
             case .failed(let message):
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(.yellow)
@@ -128,7 +131,8 @@ struct RoutineListView: View {
         .foregroundStyle(.secondary)
     }
 
-    private func syncTimeLabel(from date: Date) -> String {
+    /// Format relative sync time label.
+    static func syncTimeLabel(from date: Date) -> String {
         let interval = Date().timeIntervalSince(date)
         if interval < 60 {
             return "Just synced"
@@ -165,6 +169,9 @@ struct RoutineListView: View {
                 try await workoutManager.requestAuthorization()
                 try await workoutManager.startWorkout(with: template)
                 WKInterfaceDevice.current().play(.success)
+                // P1: Reset on success — ContentView will switch to SessionPagingView,
+                // but if we come back, the flag must be cleared.
+                isStartingWorkout = false
             } catch {
                 isStartingWorkout = false
                 errorMessage = "Failed to start: \(error.localizedDescription)"

@@ -186,11 +186,10 @@ extension WatchConnectivityManager {
                 print("Failed to decode exercise library: \(error.localizedDescription)")
                 syncStatus = .failed("Decode error")
             }
-        } else if context.isEmpty {
-            // No data received yet — keep current status or mark synced with empty library
-            if exerciseLibrary.isEmpty {
-                syncStatus = .synced(Date())
-            }
+        } else {
+            // P3: No exerciseLibrary key — mark synced regardless of library state.
+            // The context may contain other keys, or be empty on first launch.
+            syncStatus = .synced(Date())
         }
     }
 }

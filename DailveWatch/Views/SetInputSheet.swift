@@ -8,6 +8,9 @@ struct SetInputSheet: View {
     @Binding var reps: Int
     @Environment(\.dismiss) private var dismiss
 
+    /// Tracks last haptic play time for debouncing rapid taps.
+    @State private var lastHapticDate: Date = .distantPast
+
     var body: some View {
         VStack(spacing: 10) {
             // Weight section
@@ -28,6 +31,13 @@ struct SetInputSheet: View {
         .padding(.horizontal, 8)
         .focusable()
         .digitalCrownRotation($weight, from: 0, through: 500, by: 2.5, sensitivity: .medium)
+        // P1: Clamp weight to valid range — `through` is a soft limit (correction #22)
+        .onChange(of: weight) { _, newValue in
+            let clamped = min(max(newValue, 0), 500)
+            if clamped != newValue {
+                weight = clamped
+            }
+        }
     }
 
     // MARK: - Weight Section
@@ -42,7 +52,6 @@ struct SetInputSheet: View {
                 .font(.system(.title, design: .rounded).monospacedDigit().bold())
                 .foregroundStyle(.green)
                 .contentTransition(.numericText())
-                .animation(.snappy, value: weight)
 
             HStack(spacing: 6) {
                 weightButton("-5", delta: -5)
@@ -58,7 +67,7 @@ struct SetInputSheet: View {
             let newValue = weight + delta
             if (0...500).contains(newValue) {
                 weight = newValue
-                WKInterfaceDevice.current().play(.click)
+                playDebouncedHaptic()
             }
         } label: {
             Text(label)
@@ -81,36 +90,45 @@ struct SetInputSheet: View {
                 Button {
                     if reps > 0 {
                         reps -= 1
-                        WKInterfaceDevice.current().play(.click)
+                        playDebouncedHaptic()
                     }
                 } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
+                    Text("-")
+                        .font(.title3.weight(.semibold))
+                        .frame(minWidth: 44, minHeight: 44)
                 }
-                .buttonStyle(.plain)
-                .frame(minWidth: 44, minHeight: 44)
+                .buttonStyle(.bordered)
+                .tint(.gray)
 
                 Text("\(reps)")
                     .font(.system(.title, design: .rounded).monospacedDigit().bold())
                     .foregroundStyle(.green)
                     .contentTransition(.numericText())
-                    .animation(.snappy, value: reps)
                     .frame(minWidth: 40)
 
                 Button {
                     if reps < 100 {
                         reps += 1
-                        WKInterfaceDevice.current().play(.click)
+                        playDebouncedHaptic()
                     }
                 } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
+                    Text("+")
+                        .font(.title3.weight(.semibold))
+                        .frame(minWidth: 44, minHeight: 44)
                 }
-                .buttonStyle(.plain)
-                .frame(minWidth: 44, minHeight: 44)
+                .buttonStyle(.bordered)
+                .tint(.gray)
             }
         }
+    }
+
+    // MARK: - Haptic
+
+    /// Debounced haptic — skips if last play was < 100ms ago.
+    private func playDebouncedHaptic() {
+        let now = Date()
+        guard now.timeIntervalSince(lastHapticDate) >= 0.1 else { return }
+        lastHapticDate = now
+        WKInterfaceDevice.current().play(.click)
     }
 }

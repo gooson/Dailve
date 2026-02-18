@@ -13,6 +13,7 @@ struct MetricsView: View {
     @State private var showRestTimer = false
     @State private var showNextExercise = false
     @State private var showEndConfirmation = false
+    @State private var showEmptySetConfirmation = false
     @State private var transitionTask: Task<Void, Never>?
 
     var body: some View {
@@ -56,6 +57,19 @@ struct MetricsView: View {
             } else {
                 Text("Save and finish this workout?")
             }
+        }
+        // P2: Empty set confirmation
+        .confirmationDialog(
+            "Empty Set",
+            isPresented: $showEmptySetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Record Empty") {
+                executeCompleteSet()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Weight and reps are both 0. Record anyway?")
         }
     }
 
@@ -286,7 +300,18 @@ struct MetricsView: View {
     }
 
     private func completeSet() {
+        // P2: Validate empty set
+        if weight <= 0, reps <= 0 {
+            showEmptySetConfirmation = true
+            return
+        }
+        executeCompleteSet()
+    }
+
+    private func executeCompleteSet() {
         workoutManager.completeSet(weight: weight > 0 ? weight : nil, reps: reps > 0 ? reps : nil)
+
+        // P3: Play haptic before navigation to ensure it's felt
         WKInterfaceDevice.current().play(.success)
 
         if workoutManager.isLastSet {

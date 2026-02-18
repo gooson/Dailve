@@ -10,6 +10,12 @@ struct RestTimerView: View {
     let onEnd: () -> Void
 
     @Environment(WorkoutManager.self) private var workoutManager
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+    /// Maximum total rest duration (including +30s additions).
+    private static let maxDurationSeconds = 600
+    /// Seconds before end to play warning haptic.
+    private static let warningThresholdSeconds: TimeInterval = 10
 
     /// The absolute time when the timer should finish.
     @State private var targetDate: Date = .distantFuture
@@ -19,8 +25,8 @@ struct RestTimerView: View {
     @State private var tick: Int = 0
     /// The running countdown task (cancelled on disappear).
     @State private var countdownTask: Task<Void, Never>?
-    /// Whether the 10-second warning haptic has fired.
-    @State private var didPlay10sWarning = false
+    /// Whether the warning haptic has fired.
+    @State private var didPlayWarning = false
 
     var body: some View {
         VStack(spacing: 6) {
@@ -132,23 +138,25 @@ struct RestTimerView: View {
     // MARK: - Countdown
 
     private func startCountdown() {
-        let total = Int(min(max(duration, 0), 600))
+        let total = Int(min(max(duration, 0), TimeInterval(Self.maxDurationSeconds)))
         totalSeconds = total
         targetDate = Date().addingTimeInterval(TimeInterval(total))
 
-        didPlay10sWarning = false
+        didPlayWarning = false
         countdownTask?.cancel()
         countdownTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                // P2: Reduce tick frequency when AOD is active
+                let interval: Duration = isLuminanceReduced ? .seconds(5) : .seconds(1)
+                try? await Task.sleep(for: interval)
                 guard !Task.isCancelled else { return }
                 // Mutate @State to force view update
                 tick += 1
 
                 let remaining = targetDate.timeIntervalSinceNow
-                // 10-second warning haptic (fires once per countdown)
-                if remaining <= 10, remaining > 0, !didPlay10sWarning {
-                    didPlay10sWarning = true
+                // Warning haptic (fires once per countdown)
+                if remaining <= Self.warningThresholdSeconds, remaining > 0, !didPlayWarning {
+                    didPlayWarning = true
                     WKInterfaceDevice.current().play(.start)
                 }
 
@@ -166,8 +174,11 @@ struct RestTimerView: View {
     }
 
     private func addTime(_ seconds: Int) {
+        // P3: Cap total duration to prevent overflow
+        let newTotal = totalSeconds + seconds
+        guard newTotal <= Self.maxDurationSeconds else { return }
         targetDate = targetDate.addingTimeInterval(TimeInterval(seconds))
-        totalSeconds += seconds
+        totalSeconds = newTotal
     }
 
     private func timerFinished() {
