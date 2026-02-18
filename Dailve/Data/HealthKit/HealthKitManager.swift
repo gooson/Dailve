@@ -15,11 +15,16 @@ actor HealthKitManager {
         HKCategoryType(.sleepAnalysis),
         HKQuantityType(.activeEnergyBurned),
         HKQuantityType(.distanceWalkingRunning),
+        HKQuantityType(.distanceCycling),
+        HKQuantityType(.distanceSwimming),
+        HKQuantityType(.runningSpeed),
         HKQuantityType(.bodyMass),
         HKQuantityType(.bodyFatPercentage),
         HKQuantityType(.leanBodyMass),
         HKQuantityType(.height),
         HKQuantityType(.bodyMassIndex),
+        HKQuantityType(.workoutEffortScore),
+        HKQuantityType(.estimatedWorkoutEffortScore),
     ]
 
     /// Exposed for `HKWorkoutBuilder` which requires a store reference at init.

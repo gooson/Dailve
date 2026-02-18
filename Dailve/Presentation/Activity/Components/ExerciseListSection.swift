@@ -55,7 +55,12 @@ struct ExerciseListSection: View {
             let remaining = max(limit - setRecords.count, 0)
             if remaining > 0 {
                 ForEach(externalWorkouts.prefix(remaining)) { workout in
-                    workoutRow(workout)
+                    NavigationLink {
+                        HealthKitWorkoutDetailView(workout: workout)
+                    } label: {
+                        workoutRow(workout)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -72,13 +77,7 @@ struct ExerciseListSection: View {
                 }
             }
         }
-        .onAppear {
-            externalWorkouts = workouts.filteringAppDuplicates(against: exerciseRecords)
-        }
-        .onChange(of: workouts.count) { _, _ in
-            externalWorkouts = workouts.filteringAppDuplicates(against: exerciseRecords)
-        }
-        .onChange(of: exerciseRecords.count) { _, _ in
+        .task(id: "\(workouts.count)-\(exerciseRecords.count)") {
             externalWorkouts = workouts.filteringAppDuplicates(against: exerciseRecords)
         }
     }
@@ -153,17 +152,34 @@ struct ExerciseListSection: View {
     private func workoutRow(_ workout: WorkoutSummary) -> some View {
         InlineCard {
             HStack(spacing: DS.Spacing.md) {
-                Image(systemName: WorkoutSummary.iconName(for: workout.type))
-                    .foregroundStyle(DS.Color.activity)
+                Image(systemName: workout.activityType.iconName)
+                    .foregroundStyle(workout.activityType.color)
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
-                    Text(workout.type)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Text(workout.date, format: .dateTime.weekday(.wide).hour().minute())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: DS.Spacing.xs) {
+                        Text(workout.activityType.displayName)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        if workout.milestoneDistance != nil || workout.isPersonalRecord {
+                            WorkoutBadgeView.inlineBadge(
+                                milestone: workout.milestoneDistance,
+                                isPersonalRecord: workout.isPersonalRecord
+                            )
+                        }
+                    }
+
+                    HStack(spacing: DS.Spacing.sm) {
+                        Text(workout.date, format: .dateTime.weekday(.wide).hour().minute())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if let hrAvg = workout.heartRateAvg {
+                            Text("♥ \(Int(hrAvg))")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.red.opacity(0.8))
+                        }
+                    }
                 }
 
                 Spacer()
@@ -180,6 +196,7 @@ struct ExerciseListSection: View {
                 }
             }
         }
+        .prHighlight(workout.isPersonalRecord)
     }
 
     // MARK: - Helpers

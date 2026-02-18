@@ -14,6 +14,7 @@ struct WorkoutSessionView: View {
     @State private var sessionTimerTask: Task<Void, Never>?
     @State private var shareImage: UIImage?
     @State private var showingShareSheet = false
+    @State private var savedRecord: ExerciseRecord?
 
     // Set-by-set flow state
     @State private var currentSetIndex = 0
@@ -139,9 +140,14 @@ struct WorkoutSessionView: View {
                 shareImage: shareImage,
                 exerciseName: exercise.localizedName,
                 setCount: viewModel.completedSetCount,
-                onDismiss: { dismiss() }
+                onDismiss: { selectedRPE in
+                    if let rpe = selectedRPE, (1...10).contains(rpe) {
+                        savedRecord?.rpe = rpe
+                    }
+                    dismiss()
+                }
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.large])
         }
     }
 
@@ -730,6 +736,7 @@ struct WorkoutSessionView: View {
         shareImage = WorkoutShareService.renderShareImage(data: shareData, weightUnit: weightUnit)
 
         modelContext.insert(record)
+        savedRecord = record
         viewModel.didFinishSaving()
         WorkoutSessionViewModel.clearDraft()
 

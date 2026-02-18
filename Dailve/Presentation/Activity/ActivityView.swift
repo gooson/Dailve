@@ -36,6 +36,11 @@ struct ActivityView: View {
                     // Muscle Activity Summary
                     MuscleMapSummaryCard(records: recentRecords)
 
+                    // Training Load (28-day)
+                    if !viewModel.trainingLoadData.isEmpty {
+                        TrainingLoadChartView(data: viewModel.trainingLoadData)
+                    }
+
                     // Today's Metrics
                     todaySection
 

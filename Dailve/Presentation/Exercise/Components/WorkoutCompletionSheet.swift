@@ -5,9 +5,10 @@ struct WorkoutCompletionSheet: View {
     let shareImage: UIImage?
     let exerciseName: String
     let setCount: Int
-    let onDismiss: () -> Void
+    let onDismiss: (Int?) -> Void
 
     @State private var showCelebration = false
+    @State private var rpe: Int?
 
     var body: some View {
         NavigationStack {
@@ -43,6 +44,10 @@ struct WorkoutCompletionSheet: View {
 
                 Spacer()
 
+                // RPE input
+                RPEInputView(rpe: $rpe)
+                    .padding(.horizontal, DS.Spacing.lg)
+
                 // Action buttons
                 VStack(spacing: DS.Spacing.sm) {
                     if let image = shareImage {
@@ -63,7 +68,7 @@ struct WorkoutCompletionSheet: View {
                     }
 
                     Button {
-                        onDismiss()
+                        onDismiss(rpe)
                     } label: {
                         Text("Done")
                             .font(.body.weight(.medium))
@@ -79,7 +84,7 @@ struct WorkoutCompletionSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
-                        onDismiss()
+                        onDismiss(rpe)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)

@@ -57,16 +57,14 @@ struct ExerciseView: View {
                                 } label: {
                                     ExerciseRowView(item: item)
                                 }
-                            } else if let defID = item.exerciseDefinitionID {
-                                // HealthKit-only items navigate to exercise history
+                            } else if item.source == .healthKit, let summary = item.workoutSummary {
+                                // HealthKit-only items navigate to rich detail view
                                 NavigationLink {
-                                    ExerciseHistoryView(
-                                        exerciseDefinitionID: defID,
-                                        exerciseName: item.localizedType ?? item.type
-                                    )
+                                    HealthKitWorkoutDetailView(workout: summary)
                                 } label: {
                                     ExerciseRowView(item: item)
                                 }
+                                .prHighlight(item.isPersonalRecord)
                             } else {
                                 ExerciseRowView(item: item)
                             }
@@ -81,6 +79,24 @@ struct ExerciseView: View {
                                 .tint(.red)
                             }
                         }
+                        .onAppear {
+                            // Trigger pagination when near the bottom
+                            if item.id == viewModel.allExercises.last?.id {
+                                Task {
+                                    await viewModel.loadMoreWorkouts()
+                                }
+                            }
+                        }
+                    }
+
+                    // Loading more indicator
+                    if viewModel.isLoadingMore {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                        .listRowSeparator(.hidden)
                     }
                 }
             }
@@ -271,11 +287,24 @@ private struct ExerciseRowView: View {
     let item: ExerciseListItem
 
     var body: some View {
-        HStack {
+        HStack(spacing: DS.Spacing.md) {
+            // Activity type icon
+            if item.source == .healthKit {
+                Image(systemName: item.activityType.iconName)
+                    .font(.title3)
+                    .foregroundStyle(item.activityType.color)
+                    .frame(width: 32)
+            }
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(item.localizedType ?? item.type)
-                        .font(.headline)
+                    if item.source == .healthKit {
+                        Text(item.activityType.displayName)
+                            .font(.headline)
+                    } else {
+                        Text(item.localizedType ?? item.type)
+                            .font(.headline)
+                    }
                     if item.source == .healthKit {
                         Image(systemName: "heart.fill")
                             .font(.caption2)
@@ -286,15 +315,45 @@ private struct ExerciseRowView: View {
                             .foregroundStyle(.red.opacity(0.6))
                     }
                 }
-                if let localized = item.localizedType, localized != item.type {
+
+                if item.source == .manual, let localized = item.localizedType, localized != item.type {
                     Text(item.type)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
 
-                Text(item.formattedDuration)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                // Duration + key metric
+                HStack(spacing: DS.Spacing.sm) {
+                    Text(item.formattedDuration)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    if let hrAvg = item.heartRateAvg {
+                        Text("♥ \(Int(hrAvg))")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.red.opacity(0.8))
+                    }
+
+                    if let pace = item.averagePace {
+                        Text(formattedPace(pace))
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(DS.Color.activity)
+                    }
+
+                    if let elevation = item.elevationAscended, elevation > 0 {
+                        Text("↑\(Int(elevation))m")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                // Badges
+                if item.milestoneDistance != nil || item.isPersonalRecord {
+                    WorkoutBadgeView.inlineBadge(
+                        milestone: item.milestoneDistance,
+                        isPersonalRecord: item.isPersonalRecord
+                    )
+                }
 
                 if let summary = item.setSummary {
                     Text(summary)
@@ -315,6 +374,13 @@ private struct ExerciseRowView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func formattedPace(_ secPerKm: Double) -> String {
+        let totalSeconds = Int(secPerKm)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return "\(minutes)'\(String(format: "%02d", seconds))\"/km"
     }
 }
 

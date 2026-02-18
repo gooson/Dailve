@@ -15,6 +15,7 @@ struct CompoundWorkoutView: View {
     @State private var sessionTimerTask: Task<Void, Never>?
     @State private var showingShareSheet = false
     @State private var shareImage: UIImage?
+    @State private var savedRecords: [ExerciseRecord] = []
 
     @Query private var exerciseRecords: [ExerciseRecord]
 
@@ -102,9 +103,16 @@ struct CompoundWorkoutView: View {
                 shareImage: shareImage,
                 exerciseName: config.mode.displayName,
                 setCount: viewModel.totalCompletedSets,
-                onDismiss: { dismiss() }
+                onDismiss: { selectedRPE in
+                    if let rpe = selectedRPE, (1...10).contains(rpe) {
+                        for record in savedRecords {
+                            record.rpe = rpe
+                        }
+                    }
+                    dismiss()
+                }
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.large])
         }
     }
 
@@ -448,6 +456,7 @@ struct CompoundWorkoutView: View {
         for record in records {
             modelContext.insert(record)
         }
+        savedRecords = records
         viewModel.didFinishSaving()
         saveCount += 1
 
