@@ -75,26 +75,26 @@ struct MetricsView: View {
 
     // MARK: - Set Entry (Redesigned)
 
+    /// Plain VStack instead of ScrollView — crown must stay free for TabView paging.
+    /// ScrollView in a non-last vertical page tab cannot receive crown events.
     private var setEntryView: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                // Progress bar
-                sessionProgressBar
+        VStack(spacing: 8) {
+            // Progress bar
+            sessionProgressBar
 
-                // Exercise name (large)
-                exerciseHeader
+            // Exercise name (large)
+            exerciseHeader
 
-                // Weight × Reps — tap to edit
-                inputCard
+            // Weight × Reps — tap to edit
+            inputCard
 
-                // Complete Set button (large touch target)
-                completeButton
+            // Complete Set button (large touch target)
+            completeButton
 
-                // Heart rate (secondary)
-                heartRateDisplay
-            }
-            .padding(.horizontal, 8)
+            // Heart rate (secondary)
+            heartRateDisplay
         }
+        .padding(.horizontal, 8)
     }
 
     // MARK: - Progress

@@ -4,11 +4,8 @@ import SwiftUI
 /// Uses `WatchConnectivityManager.exerciseLibrary` synced from iPhone.
 struct QuickStartPickerView: View {
     @Environment(WatchConnectivityManager.self) private var connectivity
-    @Environment(WorkoutManager.self) private var workoutManager
-    @Environment(\.dismiss) private var dismiss
 
     @State private var searchText = ""
-    @State private var errorMessage: String?
 
     private var filteredExercises: [WatchExerciseInfo] {
         let library = connectivity.exerciseLibrary
@@ -25,14 +22,6 @@ struct QuickStartPickerView: View {
             }
         }
         .navigationTitle("Quick Start")
-        .alert("Error", isPresented: .init(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
-        }
     }
 
     // MARK: - Exercise List
@@ -40,7 +29,9 @@ struct QuickStartPickerView: View {
     private var exerciseList: some View {
         List {
             ForEach(filteredExercises, id: \.id) { exercise in
-                Button(action: { startQuickWorkout(exercise) }) {
+                NavigationLink(value: WatchRoute.workoutPreview(
+                    snapshotFromExercise(exercise)
+                )) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(exercise.name)
                             .font(.caption.weight(.medium))
@@ -71,9 +62,9 @@ struct QuickStartPickerView: View {
         .padding()
     }
 
-    // MARK: - Start Workout
+    // MARK: - Helpers
 
-    private func startQuickWorkout(_ exercise: WatchExerciseInfo) {
+    private func snapshotFromExercise(_ exercise: WatchExerciseInfo) -> WorkoutSessionTemplate {
         let entry = TemplateEntry(
             exerciseDefinitionID: exercise.id,
             exerciseName: exercise.name,
@@ -81,17 +72,9 @@ struct QuickStartPickerView: View {
             defaultReps: exercise.defaultReps ?? 10,
             defaultWeightKg: exercise.defaultWeightKg
         )
-        let snapshot = WorkoutSessionTemplate(
+        return WorkoutSessionTemplate(
             name: exercise.name,
             entries: [entry]
         )
-        Task {
-            do {
-                try await workoutManager.requestAuthorization()
-                try await workoutManager.startQuickWorkout(with: snapshot)
-            } catch {
-                errorMessage = "Failed to start: \(error.localizedDescription)"
-            }
-        }
     }
 }

@@ -4,11 +4,7 @@ import SwiftData
 /// Main Watch screen: displays routines synced from iPhone via CloudKit + Quick Start.
 struct RoutineListView: View {
     @Query(sort: \WorkoutTemplate.updatedAt, order: .reverse) private var templates: [WorkoutTemplate]
-    @Environment(WorkoutManager.self) private var workoutManager
     @Environment(WatchConnectivityManager.self) private var connectivity
-
-    @State private var errorMessage: String?
-    @State private var isStartingWorkout = false
 
     var body: some View {
         Group {
@@ -19,35 +15,21 @@ struct RoutineListView: View {
             }
         }
         .navigationTitle("Dailve")
-        // P1: Reset isStartingWorkout when view reappears (e.g. after workout ends)
-        .onAppear {
-            isStartingWorkout = false
-        }
-        .overlay {
-            if isStartingWorkout {
-                startingOverlay
-            }
-        }
-        .alert("Error", isPresented: .init(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
-        }
     }
 
     // MARK: - Routine List
 
     private var routineList: some View {
         List {
-            // Template list (primary content)
+            // Template list (primary content) — taps navigate to preview
             Section("Routines") {
                 ForEach(templates) { template in
-                    Button {
-                        startWorkout(with: template)
-                    } label: {
+                    NavigationLink(value: WatchRoute.workoutPreview(
+                        WorkoutSessionTemplate(
+                            name: template.name,
+                            entries: template.exerciseEntries
+                        )
+                    )) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(template.name)
                                 .font(.headline)
@@ -57,7 +39,6 @@ struct RoutineListView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .disabled(isStartingWorkout)
                 }
             }
 
@@ -140,43 +121,6 @@ struct RoutineListView: View {
             return "\(Int(interval / 60)) min ago"
         } else {
             return "\(Int(interval / 3600))h ago"
-        }
-    }
-
-    // MARK: - Starting Overlay
-
-    private var startingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.6)
-                .ignoresSafeArea()
-            VStack(spacing: 8) {
-                ProgressView()
-                Text("Starting...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Actions
-
-    private func startWorkout(with template: WorkoutTemplate) {
-        guard !isStartingWorkout else { return }
-        isStartingWorkout = true
-
-        Task {
-            do {
-                try await workoutManager.requestAuthorization()
-                try await workoutManager.startWorkout(with: template)
-                WKInterfaceDevice.current().play(.success)
-                // P1: Reset on success — ContentView will switch to SessionPagingView,
-                // but if we come back, the flag must be cleared.
-                isStartingWorkout = false
-            } catch {
-                isStartingWorkout = false
-                errorMessage = "Failed to start: \(error.localizedDescription)"
-                WKInterfaceDevice.current().play(.failure)
-            }
         }
     }
 }
