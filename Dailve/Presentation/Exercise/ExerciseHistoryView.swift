@@ -11,6 +11,7 @@ struct ExerciseHistoryView: View {
     @AppStorage(WeightUnit.storageKey) private var weightUnitRaw = WeightUnit.kg.rawValue
 
     @Query private var exerciseRecords: [ExerciseRecord]
+    @State private var recordByID: [UUID: ExerciseRecord] = [:]
     private let oneRMService = OneRMEstimationService()
 
     private var weightUnit: WeightUnit {
@@ -43,11 +44,13 @@ struct ExerciseHistoryView: View {
         .navigationTitle(exerciseName)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            rebuildRecordIndex()
             viewModel.loadHistory(from: exerciseRecords)
             updateOneRMAnalysis()
         }
-        .onChange(of: exerciseRecords) { _, newValue in
-            viewModel.loadHistory(from: newValue)
+        .onChange(of: exerciseRecords.count) { _, _ in
+            rebuildRecordIndex()
+            viewModel.loadHistory(from: exerciseRecords)
             updateOneRMAnalysis()
         }
         .sheet(item: Binding(
@@ -58,11 +61,6 @@ struct ExerciseHistoryView: View {
                 .presentationDetents([.medium])
         }
         .confirmDeleteRecord($recordToDelete, context: modelContext)
-        .navigationDestination(for: UUID.self) { sessionID in
-            if let record = exerciseRecords.first(where: { $0.id == sessionID }) {
-                ExerciseSessionDetailView(record: record)
-            }
-        }
     }
 
     // MARK: - Metric Picker
@@ -251,7 +249,13 @@ struct ExerciseHistoryView: View {
     }
 
     private func sessionRow(_ session: ExerciseHistoryViewModel.SessionSummary) -> some View {
-        NavigationLink(value: session.id) {
+        NavigationLink {
+            if let record = recordByID[session.id] {
+                ExerciseSessionDetailView(record: record, showHistoryLink: false)
+            } else {
+                ContentUnavailableView("Record not found", systemImage: "exclamationmark.triangle")
+            }
+        } label: {
             HStack {
                 VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
                     Text(session.date, style: .date)
@@ -295,7 +299,7 @@ struct ExerciseHistoryView: View {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
             Button(role: .destructive) {
-                recordToDelete = exerciseRecords.first { $0.id == session.id }
+                recordToDelete = recordByID[session.id]
             } label: {
                 Label("Delete", systemImage: "trash")
             }
@@ -303,8 +307,7 @@ struct ExerciseHistoryView: View {
     }
 
     private func shareSession(_ session: ExerciseHistoryViewModel.SessionSummary) {
-        // Find the matching ExerciseRecord for this session
-        guard let record = exerciseRecords.first(where: { $0.id == session.id }) else { return }
+        guard let record = recordByID[session.id] else { return }
         let input = ExerciseRecordShareInput(
             exerciseType: record.exerciseType,
             date: record.date,
@@ -328,6 +331,12 @@ struct ExerciseHistoryView: View {
         }
         let data = WorkoutShareService.buildShareData(from: input, personalBest: pbString)
         shareImage = WorkoutShareService.renderShareImage(data: data, weightUnit: weightUnit)
+    }
+
+    // MARK: - Record Index
+
+    private func rebuildRecordIndex() {
+        recordByID = Dictionary(uniqueKeysWithValues: exerciseRecords.map { ($0.id, $0) })
     }
 
     // MARK: - 1RM

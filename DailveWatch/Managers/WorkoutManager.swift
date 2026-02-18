@@ -73,6 +73,12 @@ final class WorkoutManager: NSObject {
         return currentExerciseIndex >= snapshot.entries.count - 1
     }
 
+    /// Last completed set for the current exercise (for weight/reps pre-fill).
+    var lastCompletedSetForCurrentExercise: CompletedSetData? {
+        guard currentExerciseIndex < completedSetsData.count else { return nil }
+        return completedSetsData[currentExerciseIndex].last
+    }
+
     // MARK: - HealthKit Authorization
 
     func requestAuthorization() async throws {

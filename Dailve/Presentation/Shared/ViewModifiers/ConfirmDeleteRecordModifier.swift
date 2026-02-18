@@ -21,16 +21,25 @@ struct ConfirmDeleteRecordModifier: ViewModifier {
                         recordToDelete = nil
                         return
                     }
-                    // Delete linked HKWorkout from HealthKit (fire-and-forget)
-                    if let workoutID = record.healthKitWorkoutID, !workoutID.isEmpty {
+                    // Capture HK ID before SwiftData delete invalidates the record
+                    let hkWorkoutID = record.healthKitWorkoutID
+
+                    // SwiftData delete first (authoritative action).
+                    // Wrap in withAnimation so List/ForEach can properly diff the collection change.
+                    // Without this, @Query fires synchronously and the UICollectionView count
+                    // mismatches its internal state, causing NSInternalInconsistencyException.
+                    withAnimation {
+                        modelContext.delete(record)
+                        recordToDelete = nil
+                    }
+
+                    // HealthKit cleanup as side-effect (fire-and-forget)
+                    if let workoutID = hkWorkoutID, !workoutID.isEmpty {
                         Task {
                             let deleteService = WorkoutDeleteService(manager: .shared)
                             try? await deleteService.deleteWorkout(uuid: workoutID)
                         }
                     }
-                    modelContext.delete(record)
-                    try? modelContext.save()
-                    recordToDelete = nil
                 }
                 Button("Cancel", role: .cancel) {
                     recordToDelete = nil

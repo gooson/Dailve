@@ -18,12 +18,13 @@ struct HeartRateChartView: View {
 
             chart
                 .frame(height: chartHeight)
+                .clipped()
                 .overlay(alignment: .top) {
                     if let point = selectedPoint {
                         ChartSelectionOverlay(
                             date: point.date,
                             value: "\(Int(point.bpm)) bpm",
-                            dateFormat: .dateTime.hour().minute().second()
+                            dateFormat: .dateTime.hour().minute()
                         )
                         .transition(.opacity)
                         .animation(.easeInOut(duration: 0.15), value: selectedDate)
@@ -103,8 +104,8 @@ struct HeartRateChartView: View {
         }
         .chartYScale(domain: yDomain)
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                AxisValueLabel(format: .dateTime.minute().second())
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                AxisValueLabel(format: .dateTime.hour().minute())
                 AxisGridLine()
             }
         }
@@ -129,8 +130,8 @@ struct HeartRateChartView: View {
     }
 
     private var yDomain: ClosedRange<Double> {
-        guard let minVal = samples.map(\.bpm).min(),
-              let maxVal = samples.map(\.bpm).max() else {
+        let bpms = samples.map(\.bpm)
+        guard let minVal = bpms.min(), let maxVal = bpms.max() else {
             return 40...200
         }
         let padding = Swift.max((maxVal - minVal) * 0.15, 10)
