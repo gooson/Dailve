@@ -83,7 +83,9 @@
       "mcp__serena__initial_instructions",
       "mcp__mcp-deepwiki__deepwiki_fetch",
       "Bash(gh api:*)",
-      "Bash(gh repo view:*)"
+      "Bash(gh repo view:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }
