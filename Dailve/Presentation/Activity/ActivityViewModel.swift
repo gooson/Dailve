@@ -15,6 +15,7 @@ final class ActivityViewModel {
     var isLoading = false
     var errorMessage: String?
     var workoutSuggestion: WorkoutSuggestion?
+    var fatigueStates: [MuscleFatigueState] = []
 
     /// Weekly training goal in active days.
     let weeklyGoal: Int = 5
@@ -77,17 +78,51 @@ final class ActivityViewModel {
 
     // MARK: - Workout Suggestion
 
+    /// Cached SwiftData snapshots for merging with HealthKit data.
+    private var exerciseRecordSnapshots: [ExerciseRecordSnapshot] = []
+
     func updateSuggestion(records: [ExerciseRecord]) {
-        let snapshots = records.map { record in
-            ExerciseRecordSnapshot(
+        exerciseRecordSnapshots = records.map { record -> ExerciseRecordSnapshot in
+            var primary = record.primaryMuscles
+            var secondary = record.secondaryMuscles
+
+            // Backfill muscles from library for V1-migrated records with empty muscle data
+            if primary.isEmpty, let defID = record.exerciseDefinitionID,
+               let definition = library.exercise(byID: defID) {
+                primary = definition.primaryMuscles
+                secondary = definition.secondaryMuscles
+            }
+
+            return ExerciseRecordSnapshot(
                 date: record.date,
                 exerciseDefinitionID: record.exerciseDefinitionID,
-                primaryMuscles: record.primaryMuscles,
-                secondaryMuscles: record.secondaryMuscles,
+                primaryMuscles: primary,
+                secondaryMuscles: secondary,
                 completedSetCount: record.completedSets.count
             )
         }
-        workoutSuggestion = recommendationService.recommend(from: snapshots, library: library)
+        recomputeFatigueAndSuggestion()
+    }
+
+    /// Recompute fatigue states and suggestion from both SwiftData records and HealthKit workouts.
+    private func recomputeFatigueAndSuggestion() {
+        // Merge SwiftData exercise snapshots with HealthKit workout snapshots
+        let healthKitSnapshots = recentWorkouts
+            .filter { !$0.isFromThisApp }  // Avoid double-counting app-created workouts
+            .filter { !$0.activityType.primaryMuscles.isEmpty }
+            .map { workout in
+                ExerciseRecordSnapshot(
+                    date: workout.date,
+                    exerciseDefinitionID: nil,
+                    primaryMuscles: workout.activityType.primaryMuscles,
+                    secondaryMuscles: workout.activityType.secondaryMuscles,
+                    completedSetCount: 0
+                )
+            }
+
+        let allSnapshots = exerciseRecordSnapshots + healthKitSnapshots
+        fatigueStates = recommendationService.computeFatigueStates(from: allSnapshots)
+        workoutSuggestion = recommendationService.recommend(from: allSnapshots, library: library)
     }
 
     private var loadTask: Task<Void, Never>?
@@ -130,6 +165,10 @@ final class ActivityViewModel {
             errorMessage = "데이터를 불러올 수 없습니다. HealthKit 권한을 확인하세요."
         }
 
+        // Recompute fatigue with newly fetched HealthKit workouts
+        recomputeFatigueAndSuggestion()
+
+        guard !Task.isCancelled else { return }
         isLoading = false
     }
 

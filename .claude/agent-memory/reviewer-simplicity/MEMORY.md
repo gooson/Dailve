@@ -54,19 +54,14 @@
 - Domain models should NOT have UI types
 - Presentation extensions in `{Type}+View.swift` pattern
 
-## Recent Review Findings (2026-02-17)
+## Recent Review Findings
 
-### Muscle Volume Calculation Now at 3 Occurrences
-- Third occurrence found in `WorkoutRecommendationService.computeFatigueStates()`
-- Violates Correction Log #37 — requires immediate extraction
-- Recommended location: `ExerciseRecord` extension or Domain service
+### 2026-02-19: Training Dashboard Redesign Review
+- **Muscle Volume Calculation**: Already extracted to `ExerciseRecord+WeeklyVolume.swift` extension. Pattern is clean.
+- **Recovery Color Logic**: Duplication of recovery threshold (0.8) across `MuscleFatigueState.isRecovered` and `MuscleRecoveryMapView` color functions. Acceptable — Domain defines threshold, View uses derived state.
+- **SVG Parser**: 437-line `MuscleBodyShape.swift` is justified complexity for SVG path parsing. Domain-specific requirement, not over-engineering.
+- **WorkoutActivityType**: 385-line enum with muscle mappings — large but necessary. Exhaustive switch cases ensure type safety.
 
-### Formula rawValue Display
-- `OneRMFormula.rawValue` displayed directly in `OneRMAnalysisSection.swift`
-- Should use `.displayName` property (but acceptable for technical users in this context)
-- Status: P3 — low priority
-
-### Metric rawValue Display in Charts
-- `ExerciseHistoryView` uses `metric.rawValue` for axis labels and buttons
-- Acceptable for technical metrics like "Weight", "Volume", "1RM"
-- Status: Monitor only
+### 2026-02-17: Prior Findings
+- Muscle Volume Calculation extracted to shared extension (resolved)
+- Formula/Metric rawValue display: acceptable for technical context
