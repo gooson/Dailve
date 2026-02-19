@@ -79,12 +79,22 @@ final class ActivityViewModel {
     // MARK: - Workout Suggestion
 
     func updateSuggestion(records: [ExerciseRecord]) {
-        let snapshots = records.map { record in
-            ExerciseRecordSnapshot(
+        let snapshots = records.map { record -> ExerciseRecordSnapshot in
+            var primary = record.primaryMuscles
+            var secondary = record.secondaryMuscles
+
+            // Backfill muscles from library for V1-migrated records with empty muscle data
+            if primary.isEmpty, let defID = record.exerciseDefinitionID,
+               let definition = library.exercise(byID: defID) {
+                primary = definition.primaryMuscles
+                secondary = definition.secondaryMuscles
+            }
+
+            return ExerciseRecordSnapshot(
                 date: record.date,
                 exerciseDefinitionID: record.exerciseDefinitionID,
-                primaryMuscles: record.primaryMuscles,
-                secondaryMuscles: record.secondaryMuscles,
+                primaryMuscles: primary,
+                secondaryMuscles: secondary,
                 completedSetCount: record.completedSets.count
             )
         }
