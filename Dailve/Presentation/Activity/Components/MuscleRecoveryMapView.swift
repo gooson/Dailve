@@ -1,23 +1,30 @@
 import SwiftUI
 
-/// Hero section: body diagram with recovery coloring + integrated workout suggestion.
+/// Hero section: muscle recovery grid grouped by upper/lower body + integrated workout suggestion.
 struct MuscleRecoveryMapView: View {
     let fatigueStates: [MuscleFatigueState]
     let suggestion: WorkoutSuggestion?
     let onStartExercise: (ExerciseDefinition) -> Void
     let onMuscleSelected: (MuscleGroup) -> Void
 
-    @State private var showingFront = true
-
     private var fatigueByMuscle: [MuscleGroup: MuscleFatigueState] {
         Dictionary(uniqueKeysWithValues: fatigueStates.map { ($0.muscle, $0) })
     }
 
+    private static let upperBody: [MuscleGroup] = [
+        .chest, .back, .shoulders, .lats, .traps, .biceps, .triceps, .forearms
+    ]
+    private static let lowerBody: [MuscleGroup] = [
+        .quadriceps, .hamstrings, .glutes, .calves, .core
+    ]
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: DS.Spacing.sm), count: 4)
+
     var body: some View {
         HeroCard(tintColor: DS.Color.activity) {
-            VStack(spacing: DS.Spacing.md) {
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 headerSection
-                bodyDiagramSection
+                muscleGridSection
                 suggestionSection
             }
         }
@@ -26,100 +33,51 @@ struct MuscleRecoveryMapView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
-                Text("Muscle Recovery")
-                    .font(.headline)
-                Text(recoverySubtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Picker("Side", selection: $showingFront) {
-                Text("Front").tag(true)
-                Text("Back").tag(false)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 130)
+        VStack(alignment: .leading, spacing: DS.Spacing.xxs) {
+            Text("Muscle Recovery")
+                .font(.headline)
+            Text(recoverySubtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
     private var recoverySubtitle: String {
         let recovered = fatigueStates.filter(\.isRecovered).count
         let total = fatigueStates.count
-        guard total > 0 else { return "No data" }
+        guard total > 0 else { return "Start training to track recovery" }
+        if recovered == total { return "All \(total) muscle groups ready" }
         return "\(recovered)/\(total) muscle groups ready"
     }
 
-    // MARK: - Body Diagram + Legend (combined section)
+    // MARK: - Muscle Grid
 
-    private var bodyDiagramSection: some View {
-        VStack(spacing: DS.Spacing.sm) {
-            bodyDiagram
-                .padding(.horizontal, DS.Spacing.xl)
-            legendRow
+    private var muscleGridSection: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            muscleGroupRow(title: "Upper Body", muscles: Self.upperBody)
+            muscleGroupRow(title: "Lower Body", muscles: Self.lowerBody)
         }
     }
 
-    private var bodyDiagram: some View {
-        let parts = showingFront ? MuscleMapData.svgFrontParts : MuscleMapData.svgBackParts
-        let viewBoxW: CGFloat = 724
-        let viewBoxH: CGFloat = 1448
-        let aspectRatio = viewBoxW / viewBoxH
+    private func muscleGroupRow(title: String, muscles: [MuscleGroup]) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
 
-        return GeometryReader { geo in
-            let width = geo.size.width
-            let height = width / aspectRatio
-
-            ZStack {
-                ForEach(parts) { part in
-                    Button {
-                        onMuscleSelected(part.muscle)
-                    } label: {
-                        part.shape
-                            .fill(recoveryColor(for: part.muscle))
-                            .overlay {
-                                part.shape
-                                    .stroke(
-                                        recoveryStrokeColor(for: part.muscle),
-                                        lineWidth: 1
-                                    )
-                            }
-                            .frame(width: width, height: height)
-                    }
-                    .buttonStyle(.plain)
+            LazyVGrid(columns: columns, spacing: DS.Spacing.sm) {
+                ForEach(muscles, id: \.self) { muscle in
+                    MuscleRecoveryCell(
+                        muscle: muscle,
+                        state: fatigueByMuscle[muscle],
+                        onTap: { onMuscleSelected(muscle) }
+                    )
                 }
             }
-            .frame(width: width, height: height)
-        }
-        .aspectRatio(aspectRatio, contentMode: .fit)
-        .frame(maxHeight: 400)
-        .animation(DS.Animation.standard, value: showingFront)
-    }
-
-    // MARK: - Legend
-
-    private var legendRow: some View {
-        HStack(spacing: DS.Spacing.md) {
-            legendItem(color: .green.opacity(0.6), label: "Ready")
-            legendItem(color: .yellow.opacity(0.65), label: "Recovering")
-            legendItem(color: .red.opacity(0.55), label: "Fatigued")
-            legendItem(color: .secondary.opacity(0.25), label: "No data")
-        }
-        .font(.caption2)
-    }
-
-    private func legendItem(color: Color, label: String) -> some View {
-        HStack(spacing: DS.Spacing.xxs) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color)
-                .frame(width: 10, height: 10)
-            Text(label)
-                .foregroundStyle(.secondary)
         }
     }
 
-    // MARK: - Suggestion Section
+    // MARK: - Suggestion
 
     @ViewBuilder
     private var suggestionSection: some View {
@@ -211,33 +169,63 @@ struct MuscleRecoveryMapView: View {
                 .foregroundStyle(.secondary)
         }
     }
+}
 
-    // MARK: - Colors
+// MARK: - Muscle Recovery Cell
 
-    private func recoveryColor(for muscle: MuscleGroup) -> Color {
-        guard let state = fatigueByMuscle[muscle] else {
-            return .secondary.opacity(0.2)
-        }
-        guard state.lastTrainedDate != nil else {
-            return .secondary.opacity(0.2)
-        }
-        let pct = state.recoveryPercent
-        if pct >= 0.8 {
-            return .green.opacity(0.35 + pct * 0.25)
-        } else if pct >= 0.5 {
-            return .yellow.opacity(0.35 + pct * 0.25)
-        } else {
-            return .red.opacity(0.3 + (1.0 - pct) * 0.3)
-        }
+private struct MuscleRecoveryCell: View {
+    let muscle: MuscleGroup
+    let state: MuscleFatigueState?
+    let onTap: () -> Void
+
+    private var recoveryPercent: Double {
+        guard let state, state.lastTrainedDate != nil else { return -1 } // -1 = no data
+        return state.recoveryPercent
     }
 
-    private func recoveryStrokeColor(for muscle: MuscleGroup) -> Color {
-        guard let state = fatigueByMuscle[muscle], state.lastTrainedDate != nil else {
-            return .secondary.opacity(0.15)
+    private var statusColor: Color {
+        let pct = recoveryPercent
+        guard pct >= 0 else { return .secondary.opacity(0.15) }
+        if pct >= 0.8 { return .green }
+        if pct >= 0.5 { return .yellow }
+        return .red
+    }
+
+    private var percentText: String {
+        let pct = recoveryPercent
+        guard pct >= 0 else { return "—" }
+        return "\(Int(pct * 100))%"
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: DS.Spacing.xs) {
+                // Recovery indicator circle
+                ZStack {
+                    Circle()
+                        .stroke(statusColor.opacity(0.3), lineWidth: 3)
+                    Circle()
+                        .trim(from: 0, to: recoveryPercent >= 0 ? recoveryPercent : 0)
+                        .stroke(statusColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Text(percentText)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(recoveryPercent >= 0 ? .primary : .secondary)
+                }
+                .frame(width: 36, height: 36)
+
+                // Muscle name
+                Text(muscle.displayName)
+                    .font(.caption2)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DS.Spacing.sm)
+            .background(statusColor.opacity(0.06), in: RoundedRectangle(cornerRadius: DS.Radius.sm))
         }
-        let pct = state.recoveryPercent
-        if pct >= 0.8 { return .green.opacity(0.4) }
-        if pct >= 0.5 { return .yellow.opacity(0.4) }
-        return .red.opacity(0.4)
+        .buttonStyle(.plain)
     }
 }
