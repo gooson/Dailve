@@ -38,9 +38,12 @@ struct UnifiedWorkoutRow: View {
                         .foregroundStyle(.secondary)
 
                     if let hrAvg = item.heartRateAvg {
-                        Label("\(Int(hrAvg))", systemImage: "heart.fill")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.red.opacity(0.8))
+                        HStack(spacing: 2) {
+                            Image(systemName: "heart.fill")
+                            Text("\(Int(hrAvg))")
+                        }
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.red.opacity(0.8))
                     }
                 }
 
@@ -128,14 +131,10 @@ struct UnifiedWorkoutRow: View {
 
     @ViewBuilder
     private var sourceBadge: some View {
-        if item.source == .healthKit {
-            Image(systemName: "heart.fill")
+        if item.source == .healthKit || item.isLinkedToHealthKit {
+            Image(systemName: "apple.logo")
                 .font(.caption2)
-                .foregroundStyle(.red)
-        } else if item.isLinkedToHealthKit {
-            Image(systemName: "heart.circle.fill")
-                .font(.caption2)
-                .foregroundStyle(.red.opacity(0.6))
+                .foregroundStyle(.pink)
         }
     }
 
@@ -145,23 +144,34 @@ struct UnifiedWorkoutRow: View {
             Text(item.formattedDuration)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
 
             if let hrAvg = item.heartRateAvg {
-                Label("\(Int(hrAvg))", systemImage: "heart.fill")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.red.opacity(0.8))
+                HStack(spacing: 2) {
+                    Image(systemName: "heart.fill")
+                    Text("\(Int(hrAvg))")
+                }
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.red.opacity(0.8))
+                .lineLimit(1)
+                .fixedSize()
             }
 
             if let pace = item.averagePace {
                 Text(Self.formattedPace(pace))
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(DS.Color.activity)
+                    .lineLimit(1)
+                    .fixedSize()
             }
 
             if let elevation = item.elevationAscended, elevation > 0 {
                 Text("↑\(Int(elevation))m")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.green)
+                    .lineLimit(1)
+                    .fixedSize()
             }
         }
     }
