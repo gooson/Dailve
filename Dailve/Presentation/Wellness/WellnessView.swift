@@ -5,15 +5,19 @@ import Charts
 struct WellnessView: View {
     @State private var sleepViewModel = SleepViewModel()
     @State private var bodyViewModel = BodyCompositionViewModel()
+    @State private var injuryViewModel = InjuryViewModel()
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BodyCompositionRecord.date, order: .reverse) private var records: [BodyCompositionRecord]
+    @Query(sort: \InjuryRecord.startDate, order: .reverse) private var injuryRecords: [InjuryRecord]
 
     @State private var cachedBodyItems: [BodyCompositionListItem] = []
+    @State private var cachedActiveInjuries: [InjuryRecord] = []
 
     private var isFullyEmpty: Bool {
         let sleepEmpty = sleepViewModel.weeklyData.isEmpty && sleepViewModel.sleepScore == 0
         let bodyEmpty = records.isEmpty && bodyViewModel.healthKitItems.isEmpty
-        return sleepEmpty && bodyEmpty && !sleepViewModel.isLoading && !bodyViewModel.isLoadingHealthKit
+        let injuryEmpty = injuryRecords.isEmpty
+        return sleepEmpty && bodyEmpty && injuryEmpty && !sleepViewModel.isLoading && !bodyViewModel.isLoadingHealthKit
     }
 
     private var isLoading: Bool {
@@ -46,13 +50,23 @@ struct WellnessView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    bodyViewModel.resetForm()
-                    bodyViewModel.isShowingAddSheet = true
+                Menu {
+                    Button {
+                        bodyViewModel.resetForm()
+                        bodyViewModel.isShowingAddSheet = true
+                    } label: {
+                        Label("Body Record", systemImage: "figure.stand")
+                    }
+                    Button {
+                        injuryViewModel.resetForm()
+                        injuryViewModel.isShowingAddSheet = true
+                    } label: {
+                        Label("Injury", systemImage: "bandage.fill")
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel("Add body record")
+                .accessibilityLabel("Add record")
             }
         }
         .sheet(isPresented: $bodyViewModel.isShowingAddSheet) {
@@ -82,8 +96,39 @@ struct WellnessView: View {
                 )
             }
         }
+        .sheet(isPresented: $injuryViewModel.isShowingAddSheet) {
+            InjuryFormSheet(
+                viewModel: injuryViewModel,
+                isEdit: false,
+                onSave: {
+                    if let record = injuryViewModel.createValidatedRecord() {
+                        modelContext.insert(record)
+                        injuryViewModel.didFinishSaving()
+                        injuryViewModel.resetForm()
+                        injuryViewModel.isShowingAddSheet = false
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $injuryViewModel.isShowingEditSheet) {
+            if injuryViewModel.editingRecord != nil {
+                InjuryFormSheet(
+                    viewModel: injuryViewModel,
+                    isEdit: true,
+                    onSave: {
+                        if let record = injuryViewModel.editingRecord, injuryViewModel.applyUpdate(to: record) {
+                            injuryViewModel.isShowingEditSheet = false
+                            injuryViewModel.resetForm()
+                        }
+                    }
+                )
+            }
+        }
         .navigationDestination(for: BodyHistoryDestination.self) { _ in
             BodyHistoryDetailView(viewModel: bodyViewModel)
+        }
+        .navigationDestination(for: InjuryHistoryDestination.self) { _ in
+            InjuryHistoryView(viewModel: injuryViewModel)
         }
         .refreshable {
             async let sleepLoad: () = sleepViewModel.loadData()
@@ -96,12 +141,16 @@ struct WellnessView: View {
             async let bodyLoad: () = bodyViewModel.loadHealthKitData()
             _ = await (sleepLoad, bodyLoad)
             refreshBodyItemsCache()
+            refreshActiveInjuriesCache()
         }
         .onChange(of: records.count) { _, _ in
             refreshBodyItemsCache()
         }
         .onChange(of: bodyViewModel.healthKitItems.count) { _, _ in
             refreshBodyItemsCache()
+        }
+        .onChange(of: injuryRecords.count) { _, _ in
+            refreshActiveInjuriesCache()
         }
         .navigationTitle("Wellness")
     }
@@ -119,6 +168,7 @@ struct WellnessView: View {
                 }
 
                 sleepSection
+                injurySection
                 bodySection
             }
             .padding()
@@ -212,6 +262,51 @@ struct WellnessView: View {
                 icon: "figure.stand",
                 message: "Add your first body composition record"
             )
+        }
+    }
+
+    // MARK: - Injury Section
+
+    @ViewBuilder
+    private var injurySection: some View {
+        if !injuryRecords.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                Text("Injuries")
+                    .font(DS.Typography.sectionTitle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                ForEach(cachedActiveInjuries.prefix(3)) { record in
+                    InjuryCardView(record: record) {
+                        injuryViewModel.startEditing(record)
+                    }
+                }
+
+                if cachedActiveInjuries.isEmpty {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                        Text("No active injuries")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DS.Spacing.md)
+                }
+
+                NavigationLink(value: InjuryHistoryDestination()) {
+                    HStack {
+                        Text("View Injury History")
+                            .font(.subheadline)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(DS.Spacing.md)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -337,15 +432,20 @@ struct WellnessView: View {
     private func refreshBodyItemsCache() {
         cachedBodyItems = bodyViewModel.allItems(manualRecords: records)
     }
+
+    private func refreshActiveInjuriesCache() {
+        cachedActiveInjuries = injuryRecords.filter(\.isActive)
+    }
 }
 
 // MARK: - Navigation Destination
 
 struct BodyHistoryDestination: Hashable {}
+struct InjuryHistoryDestination: Hashable {}
 
 #Preview {
     NavigationStack {
         WellnessView()
     }
-    .modelContainer(for: BodyCompositionRecord.self, inMemory: true)
+    .modelContainer(for: [BodyCompositionRecord.self, InjuryRecord.self], inMemory: true)
 }

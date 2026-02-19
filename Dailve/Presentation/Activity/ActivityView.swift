@@ -13,6 +13,11 @@ struct ActivityView: View {
     private let library: ExerciseLibraryQuerying = ExerciseLibraryService.shared
 
     @Query(sort: \ExerciseRecord.date, order: .reverse) private var recentRecords: [ExerciseRecord]
+    @Query(filter: #Predicate<InjuryRecord> { $0.endDate == nil },
+           sort: \InjuryRecord.startDate, order: .reverse) private var activeInjuryRecords: [InjuryRecord]
+
+    @State private var cachedInjuryConflicts: [InjuryConflict] = []
+    private let conflictUseCase = CheckInjuryConflictUseCase()
 
     var body: some View {
         ScrollView {
@@ -26,6 +31,11 @@ struct ActivityView: View {
                         activeDays: viewModel.activeDays,
                         goal: viewModel.weeklyGoal
                     )
+
+                    // ①-b Injury Warning Banner
+                    if !cachedInjuryConflicts.isEmpty {
+                        InjuryWarningBanner(conflicts: cachedInjuryConflicts)
+                    }
 
                     // ② Muscle Recovery Map (hero)
                     MuscleRecoveryMapView(
@@ -116,11 +126,33 @@ struct ActivityView: View {
         .task(id: recentRecords.count) {
             viewModel.updateSuggestion(records: recentRecords)
             await viewModel.loadActivityData()
+            recomputeInjuryConflicts()
+        }
+        .onChange(of: activeInjuryRecords.count) { _, _ in
+            recomputeInjuryConflicts()
         }
         .navigationTitle("Train")
     }
 
     // MARK: - Helpers
+
+    private func recomputeInjuryConflicts() {
+        guard !activeInjuryRecords.isEmpty else {
+            cachedInjuryConflicts = []
+            return
+        }
+        let suggestedMuscles = viewModel.workoutSuggestion?.focusMuscles ?? []
+        guard !suggestedMuscles.isEmpty else {
+            cachedInjuryConflicts = []
+            return
+        }
+        let infos = activeInjuryRecords.filter(\.isActive).map { $0.toInjuryInfo() }
+        let result = conflictUseCase.execute(input: .init(
+            exerciseMuscles: suggestedMuscles,
+            activeInjuries: infos
+        ))
+        cachedInjuryConflicts = result.conflicts
+    }
 
     private var recentExerciseIDs: [String] {
         var seen = Set<String>()
@@ -134,5 +166,5 @@ struct ActivityView: View {
 
 #Preview {
     ActivityView()
-        .modelContainer(for: [ExerciseRecord.self, WorkoutSet.self], inMemory: true)
+        .modelContainer(for: [ExerciseRecord.self, WorkoutSet.self, InjuryRecord.self], inMemory: true)
 }
