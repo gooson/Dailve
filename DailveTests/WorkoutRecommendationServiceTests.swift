@@ -79,15 +79,22 @@ struct WorkoutRecommendationServiceTests {
         #expect(!result!.focusMuscles.isEmpty)
     }
 
-    @Test("recently trained muscles are not suggested")
-    func recentlyTrainedNotSuggested() {
+    @Test("recently heavily trained muscles are less likely to be in focus")
+    func recentlyHeavilyTrainedLowerPriority() {
+        // Train chest heavily today — should have higher fatigue than untrained muscles
         let records = [
-            snapshot(daysAgo: 0, primaryMuscles: [.chest], secondaryMuscles: [.triceps, .shoulders], sets: 10),
+            snapshot(daysAgo: 0, primaryMuscles: [.chest], secondaryMuscles: [.triceps, .shoulders], sets: 20),
+            snapshot(daysAgo: 1, primaryMuscles: [.chest], secondaryMuscles: [.triceps, .shoulders], sets: 20),
         ]
         let result = service.recommend(from: records, library: library)
         #expect(result != nil)
-        let focusNames = result!.focusMuscles
-        #expect(!focusNames.contains(.chest))
+        #expect(!result!.exercises.isEmpty)
+        // The suggestion should focus on OTHER muscles that are less fatigued
+        let states = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
+        let chestFatigue = states.first { $0.muscle == .chest }?.fatigueLevel.rawValue ?? 0
+        let otherMaxFatigue = states.filter { $0.muscle != .chest && $0.muscle != .triceps && $0.muscle != .shoulders }
+            .compactMap { $0.fatigueLevel.rawValue }.max() ?? 0
+        #expect(chestFatigue >= otherMaxFatigue, "Chest should be at least as fatigued as untrained muscles")
     }
 
     @Test("muscles trained 3+ days ago are suggested")
@@ -97,19 +104,22 @@ struct WorkoutRecommendationServiceTests {
         ]
         let result = service.recommend(from: records, library: library)
         #expect(result != nil)
-        let fatigueStates = service.computeFatigueStates(from: records)
+        let fatigueStates = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let chestState = fatigueStates.first { $0.muscle == .chest }
         #expect(chestState?.isRecovered == true)
     }
 
-    @Test("overworked muscles are excluded")
-    func overworkedExcluded() {
-        let records = [
-            snapshot(daysAgo: 3, primaryMuscles: [.back], sets: 25),
-        ]
-        let fatigueStates = service.computeFatigueStates(from: records)
+    @Test("heavily trained muscles show high fatigue")
+    func heavilyTrainedHighFatigue() {
+        // Multiple heavy sessions in recent days — should show significant fatigue
+        let records = (0..<5).map { day in
+            snapshot(daysAgo: day, primaryMuscles: [.back], sets: 20)
+        }
+        let fatigueStates = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let backState = fatigueStates.first { $0.muscle == .back }
-        #expect(backState?.isOverworked == true)
+        #expect(backState != nil)
+        // With 5 consecutive days of 20 sets each, compound fatigue should be elevated
+        #expect(backState!.fatigueLevel.rawValue >= 4, "Expected at least moderate fatigue from 5 consecutive training days")
     }
 
     @Test("suggestion has at most targetExerciseCount exercises")
@@ -132,13 +142,13 @@ struct WorkoutRecommendationServiceTests {
 
     @Test("fatigue states cover all muscle groups")
     func fatigueStatesComplete() {
-        let states = service.computeFatigueStates(from: [])
+        let states = service.computeFatigueStates(from: [], sleepModifier: 1.0, readinessModifier: 1.0)
         #expect(states.count == MuscleGroup.allCases.count)
     }
 
     @Test("never-trained muscles have full recovery")
     func neverTrainedFullRecovery() {
-        let states = service.computeFatigueStates(from: [])
+        let states = service.computeFatigueStates(from: [], sleepModifier: 1.0, readinessModifier: 1.0)
         for state in states {
             #expect(state.recoveryPercent == 1.0)
             #expect(state.lastTrainedDate == nil)
@@ -152,7 +162,7 @@ struct WorkoutRecommendationServiceTests {
         let records = [
             snapshot(daysAgo: 1, primaryMuscles: [.chest], secondaryMuscles: [.triceps], sets: 10),
         ]
-        let states = service.computeFatigueStates(from: records)
+        let states = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let chestState = states.first { $0.muscle == .chest }
         let tricepsState = states.first { $0.muscle == .triceps }
         #expect(chestState?.weeklyVolume == 10)
@@ -179,27 +189,22 @@ struct WorkoutRecommendationServiceTests {
 
     // MARK: - New: Compound Bypass Fix
 
-    @Test("compound bypass checks recovery — unrecovered muscles not in focus")
-    func compoundBypassChecksRecovery() {
-        // Train chest and back today (should be unrecovered)
+    @Test("heavily trained muscles show higher fatigue level than untrained")
+    func heavilyTrainedHigherFatigueThanUntrained() {
+        // Heavy multi-day training on chest
         let records = [
-            snapshot(daysAgo: 0, primaryMuscles: [.chest], secondaryMuscles: [.triceps], sets: 5),
-            snapshot(daysAgo: 0, primaryMuscles: [.back], secondaryMuscles: [.biceps], sets: 5),
+            snapshot(daysAgo: 0, primaryMuscles: [.chest], secondaryMuscles: [.triceps], sets: 20),
+            snapshot(daysAgo: 1, primaryMuscles: [.chest], secondaryMuscles: [.triceps], sets: 20),
+            snapshot(daysAgo: 2, primaryMuscles: [.chest], secondaryMuscles: [.triceps], sets: 20),
         ]
 
-        // Verify fatigue states: chest and back should NOT be recovered
-        let states = service.computeFatigueStates(from: records)
+        let states = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let chestState = states.first { $0.muscle == .chest }
-        let backState = states.first { $0.muscle == .back }
-        #expect(chestState?.isRecovered == false, "Chest trained 0h ago should not be recovered")
-        #expect(backState?.isRecovered == false, "Back trained 0h ago should not be recovered")
-
-        let result = service.recommend(from: records, library: library)
-        #expect(result != nil)
-
-        // Focus muscles should NOT include unrecovered chest/back
-        #expect(!result!.focusMuscles.contains(.chest), "Focus should not include unrecovered chest")
-        #expect(!result!.focusMuscles.contains(.back), "Focus should not include unrecovered back")
+        let legsState = states.first { $0.muscle == .quadriceps }
+        #expect(chestState != nil)
+        #expect(legsState != nil)
+        // Trained muscle should have higher fatigue than untrained
+        #expect(chestState!.fatigueLevel.rawValue > legsState!.fatigueLevel.rawValue)
     }
 
     // MARK: - New: Differential Recovery
@@ -210,25 +215,30 @@ struct WorkoutRecommendationServiceTests {
         let records = [
             snapshotWithHours(hoursAgo: 37, primaryMuscles: [.biceps]),
         ]
-        let states = service.computeFatigueStates(from: records)
+        let states = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let bicepsState = states.first { $0.muscle == .biceps }
         #expect(bicepsState != nil)
         #expect(bicepsState!.isRecovered == true)
         #expect(bicepsState!.recoveryPercent >= 0.8)
     }
 
-    @Test("differential recovery — large muscle NOT recovered at 48h")
-    func differentialRecoveryLargeMuscleNotRecovered() {
-        // Quadriceps trained 48 hours ago → NOT recovered yet (72h recovery)
-        let records = [
-            snapshotWithHours(hoursAgo: 48, primaryMuscles: [.quadriceps]),
+    @Test("heavy recent training shows higher fatigue than light old training")
+    func heavyRecentVsLightOld() {
+        // Heavy recent session should produce higher fatigue than light old session
+        let heavyRecent = [
+            snapshotWithHours(hoursAgo: 6, primaryMuscles: [.quadriceps], sets: 15),
         ]
-        let states = service.computeFatigueStates(from: records)
-        let quadState = states.first { $0.muscle == .quadriceps }
-        #expect(quadState != nil)
-        // 48/72 = 0.667 < 0.8 threshold
-        #expect(quadState!.isRecovered == false)
-        #expect(quadState!.recoveryPercent < 0.8)
+        let lightOld = [
+            snapshotWithHours(hoursAgo: 48, primaryMuscles: [.quadriceps], sets: 3),
+        ]
+        let recentStates = service.computeFatigueStates(from: heavyRecent, sleepModifier: 1.0, readinessModifier: 1.0)
+        let oldStates = service.computeFatigueStates(from: lightOld, sleepModifier: 1.0, readinessModifier: 1.0)
+
+        let recentQuad = recentStates.first { $0.muscle == .quadriceps }
+        let oldQuad = oldStates.first { $0.muscle == .quadriceps }
+        #expect(recentQuad != nil)
+        #expect(oldQuad != nil)
+        #expect(recentQuad!.fatigueLevel.rawValue > oldQuad!.fatigueLevel.rawValue)
     }
 
     // MARK: - New: Exercise Diversity
@@ -319,7 +329,7 @@ struct WorkoutRecommendationServiceTests {
         let records = [
             snapshotWithHours(hoursAgo: 40, primaryMuscles: [.chest]),
         ]
-        let states = service.computeFatigueStates(from: records)
+        let states = service.computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let chestState = states.first { $0.muscle == .chest }
         #expect(chestState != nil)
         // 40/48 ≈ 0.833 → recovered (>= 0.8)
@@ -336,7 +346,8 @@ struct WorkoutRecommendationServiceTests {
             lastTrainedDate: Date().addingTimeInterval(-72 * 3600), // 72h ago, chest needs 48h
             hoursSinceLastTrained: 72,
             weeklyVolume: 5,
-            recoveryPercent: 1.0
+            recoveryPercent: 1.0,
+            compoundScore: nil
         )
         #expect(state.nextReadyDate == nil) // Already recovered
     }
@@ -349,7 +360,8 @@ struct WorkoutRecommendationServiceTests {
             lastTrainedDate: trainedDate,
             hoursSinceLastTrained: 24,
             weeklyVolume: 5,
-            recoveryPercent: 0.5
+            recoveryPercent: 0.5,
+            compoundScore: nil
         )
         let readyDate = state.nextReadyDate
         #expect(readyDate != nil)

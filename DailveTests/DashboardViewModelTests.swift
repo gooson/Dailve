@@ -35,6 +35,7 @@ private struct MockSleepService: SleepQuerying {
     }
     func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)? { latestStages }
     func fetchDailySleepDurations(start: Date, end: Date) async throws -> [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])] { [] }
+    func fetchLastNightSleepSummary(for date: Date) async throws -> SleepSummary? { nil }
 }
 
 private struct MockWorkoutService: WorkoutQuerying {

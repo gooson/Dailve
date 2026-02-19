@@ -4,6 +4,7 @@ protocol SleepQuerying: Sendable {
     func fetchSleepStages(for date: Date) async throws -> [SleepStage]
     func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)?
     func fetchDailySleepDurations(start: Date, end: Date) async throws -> [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])]
+    func fetchLastNightSleepSummary(for date: Date) async throws -> SleepSummary?
 }
 
 struct SleepQueryService: SleepQuerying, Sendable {
@@ -146,6 +147,29 @@ struct SleepQueryService: SleepQuerying, Sendable {
             }
             return results.sorted { $0.date < $1.date }
         }
+    }
+
+    func fetchLastNightSleepSummary(for date: Date) async throws -> SleepSummary? {
+        let stages = try await fetchSleepStages(for: date)
+        let sleepStages = stages.filter { $0.stage != .awake }
+        guard !sleepStages.isEmpty else { return nil }
+
+        let totalSeconds = sleepStages.reduce(0.0) { $0 + $1.duration }
+        guard totalSeconds > 0 else { return nil }
+
+        let totalMinutes = totalSeconds / 60.0
+        let deepSeconds = sleepStages.filter { $0.stage == .deep }.reduce(0.0) { $0 + $1.duration }
+        let remSeconds = sleepStages.filter { $0.stage == .rem }.reduce(0.0) { $0 + $1.duration }
+
+        let deepRatio = Swift.min(deepSeconds / totalSeconds, 1.0)
+        let remRatio = Swift.min(remSeconds / totalSeconds, 1.0)
+
+        return SleepSummary(
+            totalSleepMinutes: totalMinutes,
+            deepSleepRatio: deepRatio,
+            remSleepRatio: remRatio,
+            date: date
+        )
     }
 
     private func isWatchSource(_ sample: HKSample) -> Bool {

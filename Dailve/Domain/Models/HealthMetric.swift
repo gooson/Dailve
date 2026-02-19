@@ -50,6 +50,18 @@ struct SleepStage: Sendable {
     }
 }
 
+/// Summarized sleep data for recovery modifier computation.
+struct SleepSummary: Sendable {
+    /// Total sleep duration in minutes (excludes awake time).
+    let totalSleepMinutes: Double
+    /// Deep sleep proportion (0.0...1.0) of total sleep.
+    let deepSleepRatio: Double
+    /// REM sleep proportion (0.0...1.0) of total sleep.
+    let remSleepRatio: Double
+    /// The date this sleep data corresponds to.
+    let date: Date
+}
+
 struct HRVSample: Sendable {
     let value: Double
     let date: Date

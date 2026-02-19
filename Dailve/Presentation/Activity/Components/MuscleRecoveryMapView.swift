@@ -8,8 +8,10 @@ struct MuscleRecoveryMapView: View {
     let onStartExercise: (ExerciseDefinition) -> Void
     let onMuscleSelected: (MuscleGroup) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showingFront = true
     @State private var fatigueByMuscle: [MuscleGroup: MuscleFatigueState] = [:]
+    @State private var showingAlgorithmSheet = false
 
     var body: some View {
         HeroCard(tintColor: DS.Color.activity) {
@@ -38,6 +40,18 @@ struct MuscleRecoveryMapView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Button {
+                showingAlgorithmSheet = true
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .sheet(isPresented: $showingAlgorithmSheet) {
+                FatigueAlgorithmSheet()
+            }
+
             Spacer()
             Picker("Side", selection: $showingFront) {
                 Text("Front").tag(true)
@@ -111,23 +125,7 @@ struct MuscleRecoveryMapView: View {
     // MARK: - Legend
 
     private var legendRow: some View {
-        HStack(spacing: DS.Spacing.md) {
-            legendItem(color: .green.opacity(0.6), label: "Ready")
-            legendItem(color: .yellow.opacity(0.65), label: "Recovering")
-            legendItem(color: .red.opacity(0.55), label: "Fatigued")
-            legendItem(color: .secondary.opacity(0.25), label: "No data")
-        }
-        .font(.caption2)
-    }
-
-    private func legendItem(color: Color, label: String) -> some View {
-        HStack(spacing: DS.Spacing.xxs) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color)
-                .frame(width: 10, height: 10)
-            Text(label)
-                .foregroundStyle(.secondary)
-        }
+        FatigueLegendView(onTap: { showingAlgorithmSheet = true })
     }
 
     // MARK: - Suggestion
@@ -226,28 +224,16 @@ struct MuscleRecoveryMapView: View {
     // MARK: - Colors
 
     private func recoveryColor(for muscle: MuscleGroup) -> Color {
-        guard let state = fatigueByMuscle[muscle], state.lastTrainedDate != nil else {
-            return .secondary.opacity(0.2)
+        guard let state = fatigueByMuscle[muscle] else {
+            return FatigueLevel.noData.color(for: colorScheme)
         }
-        let pct = state.recoveryPercent
-        guard pct.isFinite else { return .secondary.opacity(0.2) }
-        if pct >= 0.8 {
-            return .green.opacity(0.35 + pct * 0.25)
-        } else if pct >= 0.5 {
-            return .yellow.opacity(0.35 + pct * 0.25)
-        } else {
-            return .red.opacity(0.3 + (1.0 - pct) * 0.3)
-        }
+        return state.fatigueLevel.color(for: colorScheme)
     }
 
     private func recoveryStrokeColor(for muscle: MuscleGroup) -> Color {
-        guard let state = fatigueByMuscle[muscle], state.lastTrainedDate != nil else {
-            return .secondary.opacity(0.15)
+        guard let state = fatigueByMuscle[muscle] else {
+            return FatigueLevel.noData.strokeColor(for: colorScheme)
         }
-        let pct = state.recoveryPercent
-        guard pct.isFinite else { return .secondary.opacity(0.15) }
-        if pct >= 0.8 { return .green.opacity(0.4) }
-        if pct >= 0.5 { return .yellow.opacity(0.4) }
-        return .red.opacity(0.4)
+        return state.fatigueLevel.strokeColor(for: colorScheme)
     }
 }

@@ -22,6 +22,7 @@ private struct StubSleepService: SleepQuerying {
     func fetchSleepStages(for date: Date) async throws -> [SleepStage] { todayStages }
     func fetchLatestSleepStages(withinDays days: Int) async throws -> (stages: [SleepStage], date: Date)? { nil }
     func fetchDailySleepDurations(start: Date, end: Date) async throws -> [(date: Date, totalMinutes: Double, stageBreakdown: [SleepStage.Stage: Double])] { dailySleep }
+    func fetchLastNightSleepSummary(for date: Date) async throws -> SleepSummary? { nil }
 }
 
 private struct StubStepsService: StepsQuerying {

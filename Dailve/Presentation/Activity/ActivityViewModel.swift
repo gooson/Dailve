@@ -57,22 +57,32 @@ final class ActivityViewModel {
     private let workoutService: WorkoutQuerying
     private let stepsService: StepsQuerying
     private let hrvService: HRVQuerying
+    private let sleepService: SleepQuerying
     private let effortScoreService: EffortScoreService
     private let recommendationService: WorkoutRecommending
+    private let recoveryModifierService: RecoveryModifying
     private let library: ExerciseLibraryQuerying
+
+    /// Cached recovery modifiers from the most recent fetch.
+    private var sleepModifier: Double = 1.0
+    private var readinessModifier: Double = 1.0
 
     init(
         workoutService: WorkoutQuerying? = nil,
         stepsService: StepsQuerying? = nil,
+        sleepService: SleepQuerying? = nil,
         healthKitManager: HealthKitManager = .shared,
         recommendationService: WorkoutRecommending? = nil,
+        recoveryModifierService: RecoveryModifying = RecoveryModifierService(),
         library: ExerciseLibraryQuerying? = nil
     ) {
         self.workoutService = workoutService ?? WorkoutQueryService(manager: healthKitManager)
         self.stepsService = stepsService ?? StepsQueryService(manager: healthKitManager)
         self.hrvService = HRVQueryService(manager: healthKitManager)
+        self.sleepService = sleepService ?? SleepQueryService(manager: healthKitManager)
         self.effortScoreService = EffortScoreService(manager: healthKitManager)
         self.recommendationService = recommendationService ?? WorkoutRecommendationService()
+        self.recoveryModifierService = recoveryModifierService
         self.library = library ?? ExerciseLibraryService.shared
     }
 
@@ -87,18 +97,33 @@ final class ActivityViewModel {
             var secondary = record.secondaryMuscles
 
             // Backfill muscles from library for V1-migrated records with empty muscle data
+            let definition: ExerciseDefinition?
             if primary.isEmpty, let defID = record.exerciseDefinitionID,
-               let definition = library.exercise(byID: defID) {
-                primary = definition.primaryMuscles
-                secondary = definition.secondaryMuscles
+               let def = library.exercise(byID: defID) {
+                primary = def.primaryMuscles
+                secondary = def.secondaryMuscles
+                definition = def
+            } else {
+                definition = record.exerciseDefinitionID.flatMap { library.exercise(byID: $0) }
             }
+
+            let completedSets = record.completedSets
+            let totalWeight = Swift.min(completedSets.compactMap(\.weight).reduce(0, +), 50_000)
+            let totalReps = Swift.min(completedSets.compactMap(\.reps).reduce(0, +), 10_000)
+            let durationMin = record.duration > 0 ? Swift.min(record.duration / 60.0, 480) : nil
+            let distKm = record.distance.flatMap { $0 > 0 ? Swift.min($0 / 1000.0, 500) : nil }
 
             return ExerciseRecordSnapshot(
                 date: record.date,
                 exerciseDefinitionID: record.exerciseDefinitionID,
+                exerciseName: definition?.name ?? record.exerciseType,
                 primaryMuscles: primary,
                 secondaryMuscles: secondary,
-                completedSetCount: record.completedSets.count
+                completedSetCount: completedSets.count,
+                totalWeight: totalWeight > 0 ? totalWeight : nil,
+                totalReps: totalReps > 0 ? totalReps : nil,
+                durationMinutes: durationMin,
+                distanceKm: distKm
             )
         }
         recomputeFatigueAndSuggestion()
@@ -113,15 +138,21 @@ final class ActivityViewModel {
             .map { workout in
                 ExerciseRecordSnapshot(
                     date: workout.date,
-                    exerciseDefinitionID: nil,
+                    exerciseName: workout.activityType.rawValue.capitalized,
                     primaryMuscles: workout.activityType.primaryMuscles,
                     secondaryMuscles: workout.activityType.secondaryMuscles,
-                    completedSetCount: 0
+                    completedSetCount: 0,
+                    durationMinutes: workout.duration > 0 ? Swift.min(workout.duration / 60.0, 480) : nil,
+                    distanceKm: workout.distance.flatMap { $0 > 0 ? Swift.min($0 / 1000.0, 500) : nil }
                 )
             }
 
         let allSnapshots = exerciseRecordSnapshots + healthKitSnapshots
-        fatigueStates = recommendationService.computeFatigueStates(from: allSnapshots)
+        fatigueStates = recommendationService.computeFatigueStates(
+            from: allSnapshots,
+            sleepModifier: sleepModifier,
+            readinessModifier: readinessModifier
+        )
         workoutSuggestion = recommendationService.recommend(from: allSnapshots, library: library)
     }
 
@@ -133,14 +164,16 @@ final class ActivityViewModel {
         isLoading = true
         errorMessage = nil
 
-        // 4 independent queries — parallel via async let
+        // 6 independent queries — parallel via async let
         async let exerciseTask = safeExerciseFetch()
         async let stepsTask = safeStepsFetch()
         async let workoutsTask = safeWorkoutsFetch()
         async let trainingLoadTask = safeTrainingLoadFetch()
+        async let sleepTask = safeSleepFetch()
+        async let readinessTask = safeReadinessFetch()
 
-        let (exerciseResult, stepsResult, workoutsResult, loadResult) = await (
-            exerciseTask, stepsTask, workoutsTask, trainingLoadTask
+        let (exerciseResult, stepsResult, workoutsResult, loadResult, sleepResult, readinessResult) = await (
+            exerciseTask, stepsTask, workoutsTask, trainingLoadTask, sleepTask, readinessTask
         )
 
         guard !Task.isCancelled else { return }
@@ -151,6 +184,17 @@ final class ActivityViewModel {
         todaySteps = stepsResult.todayMetric
         recentWorkouts = workoutsResult
         trainingLoadData = loadResult
+
+        // Compute recovery modifiers from sleep + HRV/RHR data
+        sleepModifier = recoveryModifierService.calculateSleepModifier(
+            totalSleepMinutes: sleepResult?.totalSleepMinutes,
+            deepSleepRatio: sleepResult?.deepSleepRatio,
+            remSleepRatio: sleepResult?.remSleepRatio
+        )
+        readinessModifier = recoveryModifierService.calculateReadinessModifier(
+            hrvZScore: readinessResult.hrvZScore,
+            rhrDelta: readinessResult.rhrDelta
+        )
 
         // Report partial failures (Correction #25)
         let failedCount = [
@@ -165,7 +209,7 @@ final class ActivityViewModel {
             errorMessage = "데이터를 불러올 수 없습니다. HealthKit 권한을 확인하세요."
         }
 
-        // Recompute fatigue with newly fetched HealthKit workouts
+        // Recompute fatigue with newly fetched HealthKit workouts + recovery modifiers
         recomputeFatigueAndSuggestion()
 
         guard !Task.isCancelled else { return }
@@ -365,5 +409,89 @@ final class ActivityViewModel {
             AppLogger.ui.error("Training load fetch failed: \(error.localizedDescription)")
             return []
         }
+    }
+
+    // MARK: - Sleep Fetch (for recovery modifier)
+
+    private func safeSleepFetch() async -> SleepSummary? {
+        do {
+            return try await sleepService.fetchLastNightSleepSummary(for: Date())
+        } catch {
+            AppLogger.ui.error("Sleep fetch failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    // MARK: - Readiness Fetch (HRV z-score + RHR delta)
+
+    private struct ReadinessResult {
+        let hrvZScore: Double?
+        let rhrDelta: Double?
+    }
+
+    private func safeReadinessFetch() async -> ReadinessResult {
+        do {
+            // Fetch 14 days of HRV for baseline + today/yesterday RHR
+            async let hrvTask = hrvService.fetchHRVSamples(days: 14)
+            async let todayRHRTask = hrvService.fetchRestingHeartRate(for: Date())
+            let calendar = Calendar.current
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+            async let yesterdayRHRTask = hrvService.fetchRestingHeartRate(for: yesterday)
+
+            let (hrvSamples, todayRHR, yesterdayRHR) = try await (hrvTask, todayRHRTask, yesterdayRHRTask)
+
+            // Compute HRV z-score from daily averages (ln-domain)
+            let hrvZScore = computeHRVZScore(from: hrvSamples)
+
+            // RHR delta: today - yesterday (positive = elevated = worse)
+            let rhrDelta: Double?
+            if let today = todayRHR, let yesterday = yesterdayRHR,
+               today > 0, today.isFinite, yesterday > 0, yesterday.isFinite {
+                rhrDelta = today - yesterday
+            } else {
+                rhrDelta = nil
+            }
+
+            return ReadinessResult(hrvZScore: hrvZScore, rhrDelta: rhrDelta)
+        } catch {
+            AppLogger.ui.error("Readiness fetch failed: \(error.localizedDescription)")
+            return ReadinessResult(hrvZScore: nil, rhrDelta: nil)
+        }
+    }
+
+    /// Computes HRV z-score in ln-domain from recent samples.
+    private nonisolated func computeHRVZScore(from samples: [HRVSample]) -> Double? {
+        let calendar = Calendar.current
+
+        // Group by day and compute daily averages
+        var dailyValues: [Date: [Double]] = [:]
+        for sample in samples where sample.value > 0 && sample.value <= 500 && sample.value.isFinite {
+            let day = calendar.startOfDay(for: sample.date)
+            dailyValues[day, default: []].append(sample.value)
+        }
+
+        let dailyAverages = dailyValues.map { (date: $0.key, value: $0.value.reduce(0, +) / Double($0.value.count)) }
+            .sorted { $0.date > $1.date }
+
+        guard dailyAverages.count >= 7, let todayAverage = dailyAverages.first, todayAverage.value > 0 else {
+            return nil
+        }
+
+        // ln-domain statistics
+        let lnValues = dailyAverages.compactMap { $0.value > 0 ? log($0.value) : nil }
+        guard lnValues.count >= 7 else { return nil }
+
+        let mean = lnValues.reduce(0, +) / Double(lnValues.count)
+        let variance = lnValues.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(lnValues.count)
+        guard variance.isFinite, !variance.isNaN else { return nil }
+
+        let stdDev = sqrt(variance)
+        let normalRange = Swift.max(stdDev, 0.05)
+
+        let todayLn = log(todayAverage.value)
+        let zScore = (todayLn - mean) / normalRange
+        guard zScore.isFinite, !zScore.isNaN else { return nil }
+
+        return zScore
     }
 }

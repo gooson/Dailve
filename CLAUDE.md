@@ -244,3 +244,9 @@
 ### 2026-02-19: Train Dashboard 리뷰 교정
 
 82. **`Shape.path(in:)` 내 무거운 연산 금지**: SwiftUI는 body 평가마다 `path(in:)`을 호출함. 문자열 파싱, JSON 디코딩, 정규식 등은 init-time에 수행하고 `path(in:)`에서는 `Path.applying(transform)`만 적용. `MuscleBodyShape` 패턴 참조
+
+### 2026-02-19: Muscle Fatigue 10-Level 리뷰 교정
+
+83. **Color 인스턴스는 static 배열로 캐싱**: `Color(hue:saturation:brightness:)` 등 초기화가 ForEach 내에서 반복 호출되면 `private enum Cache { static let colors = build() }` 패턴 사용. enum rawValue를 인덱스로 O(1) 접근
+84. **Recovery modifier 입력에 물리적 상한 필수**: sleep minutes ≤ 1440 (24h), sleep ratio ≤ 1.0. Domain 서비스가 caller의 검증을 신뢰하지 않는 원칙(#42) 확장
+85. **Snapshot 생성 시 aggregate 값에도 상한 적용**: `totalWeight`, `totalReps` 등 reduce 합산 결과는 개별 값의 합이므로 예상 외로 커질 수 있음. 세션 단위 물리적 상한 설정 (weight ≤ 50k, reps ≤ 10k, duration ≤ 480min)

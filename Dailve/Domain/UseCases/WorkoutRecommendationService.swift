@@ -7,16 +7,53 @@ protocol WorkoutRecommending: Sendable {
         library: ExerciseLibraryQuerying
     ) -> WorkoutSuggestion?
 
-    func computeFatigueStates(from records: [ExerciseRecordSnapshot]) -> [MuscleFatigueState]
+    func computeFatigueStates(
+        from records: [ExerciseRecordSnapshot],
+        sleepModifier: Double,
+        readinessModifier: Double
+    ) -> [MuscleFatigueState]
 }
 
 /// Lightweight snapshot of ExerciseRecord for recommendation (avoids SwiftData dependency)
 struct ExerciseRecordSnapshot: Sendable {
     let date: Date
     let exerciseDefinitionID: String?
+    let exerciseName: String?
     let primaryMuscles: [MuscleGroup]
     let secondaryMuscles: [MuscleGroup]
     let completedSetCount: Int
+    /// Total weight lifted across all sets (kg). nil for bodyweight or unknown.
+    let totalWeight: Double?
+    /// Total reps across all sets. nil for time-based or unknown.
+    let totalReps: Int?
+    /// Workout duration in minutes. Used for cardio load calculation.
+    let durationMinutes: Double?
+    /// Distance in kilometers. Used for cardio load calculation.
+    let distanceKm: Double?
+
+    init(
+        date: Date,
+        exerciseDefinitionID: String? = nil,
+        exerciseName: String? = nil,
+        primaryMuscles: [MuscleGroup],
+        secondaryMuscles: [MuscleGroup],
+        completedSetCount: Int,
+        totalWeight: Double? = nil,
+        totalReps: Int? = nil,
+        durationMinutes: Double? = nil,
+        distanceKm: Double? = nil
+    ) {
+        self.date = date
+        self.exerciseDefinitionID = exerciseDefinitionID
+        self.exerciseName = exerciseName
+        self.primaryMuscles = primaryMuscles
+        self.secondaryMuscles = secondaryMuscles
+        self.completedSetCount = completedSetCount
+        self.totalWeight = totalWeight
+        self.totalReps = totalReps
+        self.durationMinutes = durationMinutes
+        self.distanceKm = distanceKm
+    }
 }
 
 extension ExerciseRecordSnapshot: ExerciseRecordVolumeProviding {
@@ -29,32 +66,38 @@ extension ExerciseRecordSnapshot: ExerciseRecordVolumeProviding {
 /// Recovery-based workout recommendation engine
 ///
 /// Algorithm:
-/// 1. Compute fatigue state for each muscle group based on recent records (hour-based, differential recovery)
-/// 2. Rank muscles by recovery (prefer recovered, under-trained muscles) + weekday pattern bonus
+/// 1. Compute fatigue state for each muscle group using exponential decay model (CFS)
+/// 2. Rank muscles by fatigue level (prefer recovered, under-trained muscles) + weekday pattern bonus
 /// 3. Select 3-5 exercises targeting the most recovered muscles (prefer least-recently performed)
 /// 4. Fill remaining slots with compound movements (recovery-verified)
 struct WorkoutRecommendationService: WorkoutRecommending {
 
+    private let fatigueCalculator: FatigueCalculating
     private let maxWeeklyVolume = 20  // sets per muscle group
     private let targetExerciseCount = 4
     private let maxAlternatives = 3
     private let weekdayPatternMinWeeks = 4  // Minimum weeks of data before applying weekday bonus
 
+    init(fatigueCalculator: FatigueCalculating = FatigueCalculationService()) {
+        self.fatigueCalculator = fatigueCalculator
+    }
+
     func recommend(
         from records: [ExerciseRecordSnapshot],
         library: ExerciseLibraryQuerying
     ) -> WorkoutSuggestion? {
-        let fatigueStates = computeFatigueStates(from: records)
+        let fatigueStates = computeFatigueStates(from: records, sleepModifier: 1.0, readinessModifier: 1.0)
         let weekdayBonusMuscles = computeWeekdayPatterns(from: records)
 
-        // Find recovered, under-trained muscles
+        // Find recovered, under-trained muscles (Level 1-3)
         let candidates = fatigueStates
             .filter { $0.isRecovered && !$0.isOverworked }
             .sorted { lhs, rhs in
                 let lhsBonus: Double = weekdayBonusMuscles.contains(lhs.muscle) ? 0.1 : 0.0
                 let rhsBonus: Double = weekdayBonusMuscles.contains(rhs.muscle) ? 0.1 : 0.0
-                let lhsScore = lhs.recoveryPercent + lhsBonus
-                let rhsScore = rhs.recoveryPercent + rhsBonus
+                // Lower fatigue level = more recovered = higher priority
+                let lhsScore = (1.0 - (lhs.compoundScore?.normalizedScore ?? (1.0 - lhs.recoveryPercent))) + lhsBonus
+                let rhsScore = (1.0 - (rhs.compoundScore?.normalizedScore ?? (1.0 - rhs.recoveryPercent))) + rhsBonus
                 if lhsScore != rhsScore {
                     return lhsScore > rhsScore
                 }
@@ -142,17 +185,34 @@ struct WorkoutRecommendationService: WorkoutRecommending {
 
     // MARK: - Fatigue Computation
 
-    func computeFatigueStates(from records: [ExerciseRecordSnapshot]) -> [MuscleFatigueState] {
+    func computeFatigueStates(
+        from records: [ExerciseRecordSnapshot],
+        sleepModifier: Double,
+        readinessModifier: Double
+    ) -> [MuscleFatigueState] {
         let now = Date()
         let volumeByMuscle = records.weeklyMuscleVolume(from: now)
 
-        return MuscleGroup.allCases.map { muscle in
+        // Compute compound fatigue scores for all muscles in one pass
+        let allMuscles = MuscleGroup.allCases
+        let compoundScores = fatigueCalculator.computeCompoundFatigue(
+            for: Array(allMuscles),
+            from: records,
+            sleepModifier: sleepModifier,
+            readinessModifier: readinessModifier,
+            referenceDate: now
+        )
+        let scoreByMuscle = Dictionary(
+            uniqueKeysWithValues: compoundScores.map { ($0.muscle, $0) }
+        )
+
+        return allMuscles.map { muscle in
             let muscleRecords = records.filter {
                 $0.primaryMuscles.contains(muscle) || $0.secondaryMuscles.contains(muscle)
             }
             let lastTrainedDate = muscleRecords.map(\.date).max()
 
-            // Hour-based recovery using actual time interval
+            // Hour-based recovery using actual time interval (legacy linear model)
             let hoursSince: Double? = lastTrainedDate.map { date in
                 max(0, now.timeIntervalSince(date) / 3600.0)
             }
@@ -161,7 +221,7 @@ struct WorkoutRecommendationService: WorkoutRecommending {
             if let hoursSince, muscle.recoveryHours > 0 {
                 recovery = min(hoursSince / muscle.recoveryHours, 1.0)
             } else {
-                recovery = 1.0  // Never trained or zero recoveryHours = fully "recovered"
+                recovery = 1.0
             }
 
             return MuscleFatigueState(
@@ -169,7 +229,8 @@ struct WorkoutRecommendationService: WorkoutRecommending {
                 lastTrainedDate: lastTrainedDate,
                 hoursSinceLastTrained: hoursSince,
                 weeklyVolume: volumeByMuscle[muscle] ?? 0,
-                recoveryPercent: recovery
+                recoveryPercent: recovery,
+                compoundScore: scoreByMuscle[muscle]
             )
         }
     }

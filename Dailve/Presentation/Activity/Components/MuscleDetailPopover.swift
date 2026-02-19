@@ -5,6 +5,7 @@ struct MuscleDetailPopover: View {
     let muscle: MuscleGroup
     let fatigueState: MuscleFatigueState?
     let library: ExerciseLibraryQuerying
+    @State private var showingInfoSheet = false
 
     private var topExercises: [ExerciseDefinition] {
         Array(
@@ -39,6 +40,23 @@ struct MuscleDetailPopover: View {
             // Stats grid
             if let state = fatigueState {
                 statsGrid(state: state)
+
+                if let score = state.compoundScore {
+                    Button {
+                        showingInfoSheet = true
+                    } label: {
+                        HStack(spacing: DS.Spacing.xxs) {
+                            Image(systemName: "info.circle")
+                                .font(.caption)
+                            Text("계산 방법 보기")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(DS.Color.activity)
+                    }
+                    .sheet(isPresented: $showingInfoSheet) {
+                        FatigueInfoSheet(score: score)
+                    }
+                }
             }
 
             // Recommended exercises
@@ -72,31 +90,22 @@ struct MuscleDetailPopover: View {
 
     // MARK: - Recovery Badge
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private var recoveryBadge: some View {
-        let pct = fatigueState?.recoveryPercent ?? 1.0
-        let color: Color
-        let label: String
+        let level = fatigueState?.fatigueLevel ?? .noData
+        let color = level.color(for: colorScheme)
 
-        if fatigueState?.lastTrainedDate == nil {
-            color = .gray
-            label = "No data"
-        } else if pct >= 0.8 {
-            color = .green
-            label = "Ready"
-        } else if pct >= 0.5 {
-            color = .yellow
-            label = "Recovering"
-        } else {
-            color = .red
-            label = "Fatigued"
+        return HStack(spacing: DS.Spacing.xxs) {
+            Text(level.shortLabel)
+                .font(.caption2.weight(.bold).monospacedDigit())
+            Text(level.displayName)
+                .font(.caption.weight(.medium))
         }
-
-        return Text(label)
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, DS.Spacing.sm)
-            .padding(.vertical, DS.Spacing.xxs)
-            .background(color.opacity(0.15), in: Capsule())
-            .foregroundStyle(color)
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.vertical, DS.Spacing.xxs)
+        .background(color.opacity(0.15), in: Capsule())
+        .foregroundStyle(color)
     }
 
     // MARK: - Stats Grid
@@ -109,9 +118,9 @@ struct MuscleDetailPopover: View {
 
         return LazyVGrid(columns: columns, spacing: DS.Spacing.sm) {
             statItem(
-                title: "Recovery",
-                value: state.recoveryPercent.isFinite ? "\(Int(state.recoveryPercent * 100))%" : "—",
-                icon: "heart.fill"
+                title: "Fatigue Level",
+                value: "\(state.fatigueLevel.shortLabel) / L10",
+                icon: "flame.fill"
             )
             statItem(
                 title: "Weekly Volume",
@@ -123,11 +132,19 @@ struct MuscleDetailPopover: View {
                 value: lastTrainedText(state: state),
                 icon: "clock.fill"
             )
-            statItem(
-                title: "Recovery Time",
-                value: "\(Int(muscle.recoveryHours))h",
-                icon: "timer"
-            )
+            if let score = state.compoundScore {
+                statItem(
+                    title: "Sleep Modifier",
+                    value: String(format: "%.2f×", score.breakdown.sleepModifier),
+                    icon: "moon.fill"
+                )
+            } else {
+                statItem(
+                    title: "Base Recovery",
+                    value: "\(Int(muscle.recoveryHours))h",
+                    icon: "timer"
+                )
+            }
         }
     }
 
