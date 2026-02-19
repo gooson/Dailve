@@ -11,6 +11,7 @@ struct MuscleRecoveryMapView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showingFront = true
     @State private var fatigueByMuscle: [MuscleGroup: MuscleFatigueState] = [:]
+    @State private var showingAlgorithmSheet = false
 
     var body: some View {
         HeroCard(tintColor: DS.Color.activity) {
@@ -39,6 +40,18 @@ struct MuscleRecoveryMapView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Button {
+                showingAlgorithmSheet = true
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .sheet(isPresented: $showingAlgorithmSheet) {
+                FatigueAlgorithmSheet()
+            }
+
             Spacer()
             Picker("Side", selection: $showingFront) {
                 Text("Front").tag(true)
@@ -112,7 +125,7 @@ struct MuscleRecoveryMapView: View {
     // MARK: - Legend
 
     private var legendRow: some View {
-        FatigueLegendView()
+        FatigueLegendView(onTap: { showingAlgorithmSheet = true })
     }
 
     // MARK: - Suggestion

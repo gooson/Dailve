@@ -1,13 +1,19 @@
 import SwiftUI
 
 /// Compact gradient legend for the 10-level fatigue system.
+/// Optionally tappable to show the algorithm explanation sheet.
 struct FatigueLegendView: View {
+    var onTap: (() -> Void)?
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: DS.Spacing.xxs) {
             gradientBar
             labelRow
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap?()
         }
     }
 
@@ -28,6 +34,11 @@ struct FatigueLegendView: View {
         HStack {
             Text("Recovered")
                 .foregroundStyle(.secondary)
+            Spacer()
+            if onTap != nil {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.secondary)
+            }
             Spacer()
             Text("Fatigued")
                 .foregroundStyle(.secondary)
