@@ -78,8 +78,11 @@ final class ActivityViewModel {
 
     // MARK: - Workout Suggestion
 
+    /// Cached SwiftData snapshots for merging with HealthKit data.
+    private var exerciseRecordSnapshots: [ExerciseRecordSnapshot] = []
+
     func updateSuggestion(records: [ExerciseRecord]) {
-        let snapshots = records.map { record -> ExerciseRecordSnapshot in
+        exerciseRecordSnapshots = records.map { record -> ExerciseRecordSnapshot in
             var primary = record.primaryMuscles
             var secondary = record.secondaryMuscles
 
@@ -98,8 +101,28 @@ final class ActivityViewModel {
                 completedSetCount: record.completedSets.count
             )
         }
-        fatigueStates = recommendationService.computeFatigueStates(from: snapshots)
-        workoutSuggestion = recommendationService.recommend(from: snapshots, library: library)
+        recomputeFatigueAndSuggestion()
+    }
+
+    /// Recompute fatigue states and suggestion from both SwiftData records and HealthKit workouts.
+    private func recomputeFatigueAndSuggestion() {
+        // Merge SwiftData exercise snapshots with HealthKit workout snapshots
+        let healthKitSnapshots = recentWorkouts
+            .filter { !$0.isFromThisApp }  // Avoid double-counting app-created workouts
+            .filter { !$0.activityType.primaryMuscles.isEmpty }
+            .map { workout in
+                ExerciseRecordSnapshot(
+                    date: workout.date,
+                    exerciseDefinitionID: nil,
+                    primaryMuscles: workout.activityType.primaryMuscles,
+                    secondaryMuscles: workout.activityType.secondaryMuscles,
+                    completedSetCount: 0
+                )
+            }
+
+        let allSnapshots = exerciseRecordSnapshots + healthKitSnapshots
+        fatigueStates = recommendationService.computeFatigueStates(from: allSnapshots)
+        workoutSuggestion = recommendationService.recommend(from: allSnapshots, library: library)
     }
 
     private var loadTask: Task<Void, Never>?
@@ -141,6 +164,9 @@ final class ActivityViewModel {
         } else if failedCount == 4 {
             errorMessage = "데이터를 불러올 수 없습니다. HealthKit 권한을 확인하세요."
         }
+
+        // Recompute fatigue with newly fetched HealthKit workouts
+        recomputeFatigueAndSuggestion()
 
         isLoading = false
     }

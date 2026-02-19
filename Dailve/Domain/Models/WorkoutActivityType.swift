@@ -110,6 +110,71 @@ enum WorkoutActivityType: String, Codable, Sendable, CaseIterable {
     case wheelchairWalkPace
     case other
 
+    // MARK: - Muscle Mapping
+
+    /// Primary muscle groups engaged by this activity type.
+    /// Used to include HealthKit workouts in muscle recovery tracking.
+    var primaryMuscles: [MuscleGroup] {
+        switch self {
+        case .running, .walking, .hiking, .stairClimbing, .stairStepper, .stepTraining:
+            return [.quadriceps, .hamstrings, .glutes, .calves]
+        case .cycling, .handCycling:
+            return [.quadriceps, .hamstrings, .glutes]
+        case .swimming:
+            return [.lats, .shoulders, .core]
+        case .elliptical:
+            return [.quadriceps, .hamstrings, .glutes]
+        case .rowing:
+            return [.back, .lats, .biceps]
+        case .jumpRope:
+            return [.calves, .quadriceps, .shoulders]
+        case .traditionalStrengthTraining, .functionalStrengthTraining:
+            return [] // Too broad — actual muscles come from ExerciseRecord
+        case .coreTraining:
+            return [.core]
+        case .highIntensityIntervalTraining, .crossTraining, .mixedCardio:
+            return [.quadriceps, .core]
+        case .yoga, .pilates, .barre:
+            return [.core, .glutes]
+        case .boxing, .kickboxing:
+            return [.shoulders, .core, .biceps]
+        case .martialArts, .wrestling:
+            return [.core, .shoulders]
+        case .climbing, .mountaineering:
+            return [.forearms, .lats, .biceps]
+        case .basketball, .soccer, .volleyball, .rugby, .americanFootball:
+            return [.quadriceps, .hamstrings, .calves]
+        case .tennis, .badminton, .tableTennis, .racquetball, .squash, .pickleball:
+            return [.shoulders, .forearms, .quadriceps]
+        case .downhillSkiing, .crossCountrySkiing, .snowboarding, .snowSports, .skating:
+            return [.quadriceps, .glutes, .core]
+        case .surfingSports, .paddleSports:
+            return [.shoulders, .lats, .core]
+        default:
+            return []
+        }
+    }
+
+    /// Secondary muscle groups engaged by this activity type.
+    var secondaryMuscles: [MuscleGroup] {
+        switch self {
+        case .running, .walking, .hiking:
+            return [.core]
+        case .cycling:
+            return [.calves, .core]
+        case .swimming:
+            return [.triceps, .chest]
+        case .rowing:
+            return [.core, .hamstrings, .shoulders]
+        case .boxing, .kickboxing:
+            return [.triceps, .forearms]
+        case .climbing, .mountaineering:
+            return [.shoulders, .core]
+        default:
+            return []
+        }
+    }
+
     // MARK: - Computed Properties
 
     /// Whether this activity primarily measures distance.
