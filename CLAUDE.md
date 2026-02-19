@@ -240,3 +240,7 @@
 
 80. **Formatter 객체는 static let 캐싱 필수**: `NumberFormatter`, `DateFormatter` 등 `NSObject` 기반 formatter를 hot path(차트 렌더링 등)에서 매번 생성 금지. `private enum Cache { static let formatter = ... }` 패턴 사용
 81. **새 기능 구현 후 관련 Correction 항목 재검증**: `/review` 전에 새 코드가 기존 Correction Log 항목(특히 #17 Task.isCancelled, #70 .clipped(), #79 거리 상한)을 위반하지 않는지 사전 점검. `/work` 단계에서 관련 항목을 구현 체크리스트에 포함
+
+### 2026-02-19: Train Dashboard 리뷰 교정
+
+82. **`Shape.path(in:)` 내 무거운 연산 금지**: SwiftUI는 body 평가마다 `path(in:)`을 호출함. 문자열 파싱, JSON 디코딩, 정규식 등은 init-time에 수행하고 `path(in:)`에서는 `Path.applying(transform)`만 적용. `MuscleBodyShape` 패턴 참조
