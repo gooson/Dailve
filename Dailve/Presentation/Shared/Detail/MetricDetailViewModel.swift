@@ -53,6 +53,7 @@ final class MetricDetailViewModel {
     private let stepsService: StepsQuerying
     private let workoutService: WorkoutQuerying
     private let bodyService: BodyCompositionQuerying
+    private let vitalsService: VitalsQuerying
 
     init(
         hrvService: HRVQuerying? = nil,
@@ -60,6 +61,7 @@ final class MetricDetailViewModel {
         stepsService: StepsQuerying? = nil,
         workoutService: WorkoutQuerying? = nil,
         bodyService: BodyCompositionQuerying? = nil,
+        vitalsService: VitalsQuerying? = nil,
         healthKitManager: HealthKitManager = .shared
     ) {
         self.hrvService = hrvService ?? HRVQueryService(manager: healthKitManager)
@@ -67,6 +69,7 @@ final class MetricDetailViewModel {
         self.stepsService = stepsService ?? StepsQueryService(manager: healthKitManager)
         self.workoutService = workoutService ?? WorkoutQueryService(manager: healthKitManager)
         self.bodyService = bodyService ?? BodyCompositionQueryService(manager: healthKitManager)
+        self.vitalsService = vitalsService ?? VitalsQueryService(manager: healthKitManager)
     }
 
     func configure(
@@ -90,13 +93,18 @@ final class MetricDetailViewModel {
 
         do {
             switch category {
-            case .hrv:      try await loadHRVData()
-            case .rhr:      try await loadRHRData()
-            case .sleep:    try await loadSleepData()
-            case .steps:    try await loadStepsData()
-            case .exercise: try await loadExerciseData()
-            case .weight:   try await loadWeightData()
-            case .bmi:      try await loadBMIData()
+            case .hrv:               try await loadHRVData()
+            case .rhr:               try await loadRHRData()
+            case .sleep:             try await loadSleepData()
+            case .steps:             try await loadStepsData()
+            case .exercise:          try await loadExerciseData()
+            case .weight:            try await loadWeightData()
+            case .bmi:               try await loadBMIData()
+            case .spo2:              try await loadVitalsData(.oxygenSaturation, days: 30)
+            case .respiratoryRate:   try await loadVitalsData(.respiratoryRate, days: 30)
+            case .vo2Max:            try await loadVitalsData(.vo2Max, days: 180)
+            case .heartRateRecovery: try await loadVitalsData(.heartRateRecovery, days: 90)
+            case .wristTemperature:  try await loadVitalsData(.wristTemperature, days: 30)
             }
             guard !Task.isCancelled else {
                 isLoading = false
@@ -450,6 +458,26 @@ final class MetricDetailViewModel {
             from: currentPeriodValues(),
             previousPeriodValues: previous.map(\.value)
         )
+    }
+
+    // MARK: - Vitals (SpO2, Respiratory Rate, VO2 Max, HR Recovery, Wrist Temp)
+
+    private enum VitalType {
+        case oxygenSaturation, respiratoryRate, vo2Max, heartRateRecovery, wristTemperature
+    }
+
+    private func loadVitalsData(_ type: VitalType, days: Int) async throws {
+        let samples: [VitalSample]
+        switch type {
+        case .oxygenSaturation:  samples = try await vitalsService.fetchSpO2Collection(days: days)
+        case .respiratoryRate:   samples = try await vitalsService.fetchRespiratoryRateCollection(days: days)
+        case .vo2Max:            samples = try await vitalsService.fetchVO2MaxHistory(days: days)
+        case .heartRateRecovery: samples = try await vitalsService.fetchHeartRateRecoveryHistory(days: days)
+        case .wristTemperature:  samples = try await vitalsService.fetchWristTemperatureCollection(days: days)
+        }
+
+        chartData = samples.map { ChartDataPoint(date: $0.date, value: $0.value) }
+        summaryStats = HealthDataAggregator.computeSummary(from: samples.map(\.value))
     }
 
     // MARK: - Helpers

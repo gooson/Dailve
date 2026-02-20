@@ -17,6 +17,7 @@ final class AllDataViewModel {
     private let stepsService: StepsQuerying
     private let workoutService: WorkoutQuerying
     private let bodyService: BodyCompositionQuerying
+    private let vitalsService: VitalsQuerying
 
     private var currentPage = 0
     private let pageSize = 30 // days per page
@@ -27,6 +28,7 @@ final class AllDataViewModel {
         stepsService: StepsQuerying? = nil,
         workoutService: WorkoutQuerying? = nil,
         bodyService: BodyCompositionQuerying? = nil,
+        vitalsService: VitalsQuerying? = nil,
         healthKitManager: HealthKitManager = .shared
     ) {
         self.hrvService = hrvService ?? HRVQueryService(manager: healthKitManager)
@@ -34,6 +36,7 @@ final class AllDataViewModel {
         self.stepsService = stepsService ?? StepsQueryService(manager: healthKitManager)
         self.workoutService = workoutService ?? WorkoutQueryService(manager: healthKitManager)
         self.bodyService = bodyService ?? BodyCompositionQueryService(manager: healthKitManager)
+        self.vitalsService = vitalsService ?? VitalsQueryService(manager: healthKitManager)
     }
 
     func configure(category: HealthMetric.Category) {
@@ -176,6 +179,36 @@ final class AllDataViewModel {
             let start = Calendar.current.date(byAdding: .day, value: -fromDaysAgo, to: Date()) ?? Date()
             let cutoff = Calendar.current.date(byAdding: .day, value: -toDaysAgo, to: Date()) ?? Date()
             let samples = try await bodyService.fetchBMI(start: start, end: cutoff)
+            return samples
+                .map { ChartDataPoint(date: $0.date, value: $0.value) }
+                .sorted(by: { $0.date > $1.date })
+
+        case .spo2:
+            let samples = try await vitalsService.fetchSpO2Collection(days: fromDaysAgo)
+            return samples
+                .map { ChartDataPoint(date: $0.date, value: $0.value) }
+                .sorted(by: { $0.date > $1.date })
+
+        case .respiratoryRate:
+            let samples = try await vitalsService.fetchRespiratoryRateCollection(days: fromDaysAgo)
+            return samples
+                .map { ChartDataPoint(date: $0.date, value: $0.value) }
+                .sorted(by: { $0.date > $1.date })
+
+        case .vo2Max:
+            let samples = try await vitalsService.fetchVO2MaxHistory(days: fromDaysAgo)
+            return samples
+                .map { ChartDataPoint(date: $0.date, value: $0.value) }
+                .sorted(by: { $0.date > $1.date })
+
+        case .heartRateRecovery:
+            let samples = try await vitalsService.fetchHeartRateRecoveryHistory(days: fromDaysAgo)
+            return samples
+                .map { ChartDataPoint(date: $0.date, value: $0.value) }
+                .sorted(by: { $0.date > $1.date })
+
+        case .wristTemperature:
+            let samples = try await vitalsService.fetchWristTemperatureCollection(days: fromDaysAgo)
             return samples
                 .map { ChartDataPoint(date: $0.date, value: $0.value) }
                 .sorted(by: { $0.date > $1.date })

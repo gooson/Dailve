@@ -25,6 +25,12 @@ actor HealthKitManager {
         HKQuantityType(.bodyMassIndex),
         HKQuantityType(.workoutEffortScore),
         HKQuantityType(.estimatedWorkoutEffortScore),
+        // Vitals (Wellness tab)
+        HKQuantityType(.oxygenSaturation),
+        HKQuantityType(.respiratoryRate),
+        HKQuantityType(.vo2Max),
+        HKQuantityType(.heartRateRecoveryOneMinute),
+        HKQuantityType(.appleSleepingWristTemperature),
     ]
 
     /// Exposed for `HKWorkoutBuilder` which requires a store reference at init.

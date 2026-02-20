@@ -12,13 +12,21 @@ enum DS {
         static let scoreTired     = SwiftUI.Color("ScoreTired")
         static let scoreWarning   = SwiftUI.Color("ScoreWarning")
 
-        // Metric category (6 colors — distinguishable when shown together)
+        // Metric category (8 colors — distinguishable when shown together)
         static let hrv      = SwiftUI.Color("MetricHRV")
         static let rhr      = SwiftUI.Color("MetricRHR")
         static let sleep    = SwiftUI.Color("MetricSleep")
         static let activity = SwiftUI.Color("MetricActivity")
         static let steps    = SwiftUI.Color("MetricSteps")
         static let body     = SwiftUI.Color("MetricBody")
+        static let vitals   = SwiftUI.Color("WellnessVitals")
+        static let fitness  = SwiftUI.Color("WellnessFitness")
+
+        // Wellness Score gradient (4 levels)
+        static let wellnessExcellent = SwiftUI.Color("WellnessScoreExcellent")
+        static let wellnessGood      = SwiftUI.Color("WellnessScoreGood")
+        static let wellnessFair      = SwiftUI.Color("WellnessScoreFair")
+        static let wellnessWarning   = SwiftUI.Color("WellnessScoreWarning")
 
         // Feedback
         static let positive = SwiftUI.Color("Positive")

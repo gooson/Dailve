@@ -262,6 +262,59 @@ struct MetricDetailView: View {
                 trendLine: trend,
                 scrollPosition: $viewModel.scrollPosition
             )
+
+        case .spo2:
+            DotLineChartView(
+                data: viewModel.chartData,
+                baseline: nil,
+                yAxisLabel: "%",
+                timePeriod: viewModel.selectedPeriod,
+                tintColor: DS.Color.vitals,
+                trendLine: trend,
+                scrollPosition: $viewModel.scrollPosition
+            )
+
+        case .respiratoryRate:
+            AreaLineChartView(
+                data: viewModel.chartData,
+                period: viewModel.selectedPeriod,
+                tintColor: DS.Color.vitals,
+                unitSuffix: " breaths/min",
+                trendLine: trend,
+                scrollPosition: $viewModel.scrollPosition
+            )
+
+        case .vo2Max:
+            DotLineChartView(
+                data: viewModel.chartData,
+                baseline: nil,
+                yAxisLabel: "ml/kg/min",
+                timePeriod: viewModel.selectedPeriod,
+                tintColor: DS.Color.fitness,
+                trendLine: trend,
+                scrollPosition: $viewModel.scrollPosition
+            )
+
+        case .heartRateRecovery:
+            DotLineChartView(
+                data: viewModel.chartData,
+                baseline: nil,
+                yAxisLabel: "bpm",
+                timePeriod: viewModel.selectedPeriod,
+                tintColor: DS.Color.fitness,
+                trendLine: trend,
+                scrollPosition: $viewModel.scrollPosition
+            )
+
+        case .wristTemperature:
+            AreaLineChartView(
+                data: viewModel.chartData,
+                period: viewModel.selectedPeriod,
+                tintColor: DS.Color.vitals,
+                unitSuffix: "°C",
+                trendLine: trend,
+                scrollPosition: $viewModel.scrollPosition
+            )
         }
     }
 

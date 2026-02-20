@@ -8,46 +8,27 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: sizeClass == .regular ? DS.Spacing.xxl : DS.Spacing.xl) {
-                if viewModel.isLoading && viewModel.conditionScore == nil && viewModel.sortedMetrics.isEmpty {
+                if viewModel.isLoading && viewModel.sortedMetrics.isEmpty {
                     DashboardSkeletonView()
-                } else if viewModel.conditionScore == nil && viewModel.sortedMetrics.isEmpty && !viewModel.isLoading {
+                } else if viewModel.sortedMetrics.isEmpty && !viewModel.isLoading {
                     if viewModel.errorMessage != nil {
                         errorSection
                     } else {
                         EmptyStateView(
                             icon: "heart.text.clipboard",
                             title: "No Health Data",
-                            message: "Grant HealthKit access to see your condition score and daily metrics.",
+                            message: "Grant HealthKit access to see your daily metrics.",
                             actionTitle: "Open Settings",
                             action: openSettings
                         )
                     }
                 } else {
-                    // Hero Section
-                    if let score = viewModel.conditionScore {
-                        NavigationLink(value: score) {
-                            ConditionHeroView(
-                                score: score,
-                                recentScores: viewModel.recentScores
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .hoverEffect(.highlight)
-                    } else if let status = viewModel.baselineStatus, !status.isReady {
-                        BaselineProgressView(status: status)
-                    }
-
                     // Last updated timestamp
                     if let lastUpdated = viewModel.lastUpdated {
                         Text("Updated \(lastUpdated, format: .relative(presentation: .named))")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-
-                    // Score Contributors (Oura-style)
-                    if let score = viewModel.conditionScore, !score.contributions.isEmpty {
-                        ScoreContributorsView(contributions: score.contributions)
                     }
 
                     // Error banner (non-blocking — data may be partially loaded)

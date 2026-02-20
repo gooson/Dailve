@@ -65,13 +65,18 @@ struct MetricHighlightsView: View {
 
     private func formattedValue(_ value: Double) -> String {
         switch category {
-        case .hrv:      String(format: "%.0f ms", value)
-        case .rhr:      String(format: "%.0f bpm", value)
-        case .sleep:    value.hoursMinutesFormatted
-        case .exercise: String(format: "%.0f min", value)
-        case .steps:    String(format: "%.0f", value)
-        case .weight:   String(format: "%.1f kg", value)
-        case .bmi:      String(format: "%.1f", value)
+        case .hrv:               String(format: "%.0f ms", value)
+        case .rhr:               String(format: "%.0f bpm", value)
+        case .sleep:             value.hoursMinutesFormatted
+        case .exercise:          String(format: "%.0f min", value)
+        case .steps:             String(format: "%.0f", value)
+        case .weight:            String(format: "%.1f kg", value)
+        case .bmi:               String(format: "%.1f", value)
+        case .spo2:              String(format: "%.0f%%", value * 100)
+        case .respiratoryRate:   String(format: "%.0f breaths/min", value)
+        case .vo2Max:            String(format: "%.1f ml/kg/min", value)
+        case .heartRateRecovery: String(format: "%.0f bpm", value)
+        case .wristTemperature:  String(format: "%+.1f °C", value)
         }
     }
 }
