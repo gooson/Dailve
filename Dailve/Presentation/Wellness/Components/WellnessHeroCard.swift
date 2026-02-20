@@ -82,10 +82,15 @@ struct WellnessHeroCard: View {
                 }
 
                 Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.quaternary)
             }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Wellness score \(score.score), \(score.status.label)")
+        .accessibilityHint("Tap to see score details")
         .sensoryFeedback(.impact(weight: .light), trigger: isAppeared)
         .onAppear {
             guard !isAppeared else { return }

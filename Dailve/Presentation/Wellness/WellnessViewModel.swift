@@ -44,6 +44,9 @@ final class WellnessViewModel {
     var conditionScore: Int?
     var bodyScore: Int?
 
+    // Full condition score for detail navigation
+    var conditionScoreFull: ConditionScore?
+
     // MARK: - Dependencies
 
     private let sleepService: SleepQuerying
@@ -113,7 +116,7 @@ final class WellnessViewModel {
         // Build cards from results
         var cards: [VitalCardData] = []
         var failureCount = 0
-        let totalSources = 8 // sleep, condition, weight, spo2, respRate, vo2Max, hrRecovery, wristTemp
+        let totalSources = 8 // sleep, condition(+hrv/rhr), weight, spo2, respRate, vo2Max, hrRecovery, wristTemp
 
         // --- Sleep ---
         if let sleep = results.sleep {
@@ -138,9 +141,43 @@ final class WellnessViewModel {
         // --- Condition (HRV/RHR) ---
         if let condition = results.condition {
             conditionScore = condition.score
+            conditionScoreFull = condition
         } else {
             conditionScore = nil
+            conditionScoreFull = nil
             failureCount += 1
+        }
+
+        // --- HRV ---
+        if let hrv = results.latestHRV {
+            let sparkline = results.hrvWeekly.map(\.average)
+            cards.append(buildCard(
+                category: .hrv,
+                title: "HRV",
+                rawValue: hrv.value,
+                formattedValue: String(format: "%.0f", hrv.value),
+                unit: "ms",
+                change: nil,
+                sparkline: sparkline,
+                date: hrv.date,
+                isHistorical: false
+            ))
+        }
+
+        // --- RHR ---
+        if let rhr = results.latestRHR {
+            let sparkline = results.rhrWeekly.map(\.average)
+            cards.append(buildCard(
+                category: .rhr,
+                title: "Resting HR",
+                rawValue: rhr.value,
+                formattedValue: String(format: "%.0f", rhr.value),
+                unit: "bpm",
+                change: nil,
+                sparkline: sparkline,
+                date: rhr.date,
+                isHistorical: false
+            ))
         }
 
         // --- Body Composition (Weight) ---
@@ -309,6 +346,11 @@ final class WellnessViewModel {
         var sleepWeekly: [DailySleep] = []
         // Condition
         var condition: ConditionScore?
+        // HRV / RHR (raw values for individual cards)
+        var latestHRV: (value: Double, date: Date)?
+        var latestRHR: (value: Double, date: Date)?
+        var hrvWeekly: [(date: Date, average: Double)] = []
+        var rhrWeekly: [(date: Date, average: Double)] = []
         // Body
         var latestWeight: (value: Double, date: Date)?
         var weightWeekAgo: Double?
@@ -334,6 +376,8 @@ final class WellnessViewModel {
         case sleep
         case sleepWeekly
         case condition
+        case hrvWeekly
+        case rhrWeekly
         case weight
         case weightHistory
         case bmi
@@ -354,7 +398,9 @@ final class WellnessViewModel {
     private enum FetchValue: Sendable {
         case sleepResult(output: CalculateSleepScoreUseCase.Output?, date: Date?, isHistorical: Bool)
         case sleepWeekly([DailySleep])
-        case conditionResult(ConditionScore?)
+        case conditionResult(score: ConditionScore?, latestHRV: (Double, Date)?, latestRHR: (Double, Date)?)
+        case hrvWeeklyResult([(date: Date, average: Double)])
+        case rhrWeeklyResult([(date: Date, average: Double)])
         case weightResult(value: Double, date: Date)
         case weightHistoryResult([BodyCompositionSample])
         case bmiResult(value: Double, date: Date)
@@ -435,7 +481,8 @@ final class WellnessViewModel {
                 guard !Task.isCancelled else { return (.condition, .empty) }
                 do {
                     let hrvSamples = try await hrvService.fetchHRVSamples(days: 14)
-                    let todayRHR = try await hrvService.fetchRestingHeartRate(for: Date())
+                    let latestRHRSample = try await hrvService.fetchLatestRestingHeartRate(withinDays: 1)
+                    let todayRHR: Double? = latestRHRSample?.value
                     let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
                     let yesterdayRHR = try await hrvService.fetchRestingHeartRate(for: yesterday)
 
@@ -444,9 +491,50 @@ final class WellnessViewModel {
                         todayRHR: todayRHR,
                         yesterdayRHR: yesterdayRHR
                     ))
-                    return (.condition, .conditionResult(output.score))
+
+                    // Extract latest HRV/RHR raw values for individual cards (Correction #22: range validation)
+                    let latestHRV: (Double, Date)? = hrvSamples.last.flatMap { sample in
+                        sample.value > 0 && sample.value <= 500 ? (sample.value, sample.date) : nil
+                    }
+                    let latestRHRTuple: (Double, Date)? = latestRHRSample.flatMap { sample in
+                        sample.value >= 20 && sample.value <= 300 ? (sample.value, sample.date) : nil
+                    }
+
+                    return (.condition, .conditionResult(score: output.score, latestHRV: latestHRV, latestRHR: latestRHRTuple))
                 } catch {
-                    return (.condition, .conditionResult(nil))
+                    return (.condition, .conditionResult(score: nil, latestHRV: nil, latestRHR: nil))
+                }
+            }
+
+            // --- HRV Weekly (sparkline) ---
+            group.addTask {
+                guard !Task.isCancelled else { return (.hrvWeekly, .empty) }
+                do {
+                    let calendar = Calendar.current
+                    let end = Date()
+                    let start = calendar.date(byAdding: .day, value: -7, to: end) ?? end
+                    let history = try await hrvService.fetchHRVCollection(
+                        start: start, end: end, interval: DateComponents(day: 1)
+                    )
+                    return (.hrvWeekly, .hrvWeeklyResult(history))
+                } catch {
+                    return (.hrvWeekly, .hrvWeeklyResult([]))
+                }
+            }
+
+            // --- RHR Weekly (sparkline) ---
+            group.addTask {
+                guard !Task.isCancelled else { return (.rhrWeekly, .empty) }
+                do {
+                    let calendar = Calendar.current
+                    let end = Date()
+                    let start = calendar.date(byAdding: .day, value: -7, to: end) ?? end
+                    let history = try await hrvService.fetchRHRCollection(
+                        start: start, end: end, interval: DateComponents(day: 1)
+                    )
+                    return (.rhrWeekly, .rhrWeeklyResult(history.map { ($0.date, $0.average) }))
+                } catch {
+                    return (.rhrWeekly, .rhrWeeklyResult([]))
                 }
             }
 
@@ -631,8 +719,14 @@ final class WellnessViewModel {
                     results.sleepIsHistorical = isHistorical
                 case let (.sleepWeekly, .sleepWeekly(weekly)):
                     results.sleepWeekly = weekly
-                case let (.condition, .conditionResult(score)):
+                case let (.condition, .conditionResult(score, latestHRV, latestRHR)):
                     results.condition = score
+                    if let hrv = latestHRV { results.latestHRV = (value: hrv.0, date: hrv.1) }
+                    if let rhr = latestRHR { results.latestRHR = (value: rhr.0, date: rhr.1) }
+                case let (.hrvWeekly, .hrvWeeklyResult(history)):
+                    results.hrvWeekly = history
+                case let (.rhrWeekly, .rhrWeeklyResult(history)):
+                    results.rhrWeekly = history
                 case let (.weight, .weightResult(value, date)):
                     results.latestWeight = (value, date)
                 case let (.weightHistory, .weightHistoryResult(history)):

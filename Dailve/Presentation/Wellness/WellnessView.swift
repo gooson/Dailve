@@ -128,6 +128,16 @@ struct WellnessView: View {
         .navigationDestination(for: InjuryHistoryDestination.self) { _ in
             InjuryHistoryView(viewModel: injuryViewModel)
         }
+        .navigationDestination(for: WellnessScoreDestination.self) { _ in
+            if let score = viewModel.wellnessScore {
+                WellnessScoreDetailView(
+                    wellnessScore: score,
+                    conditionScore: viewModel.conditionScoreFull
+                )
+            } else {
+                ProgressView()
+            }
+        }
         .refreshable {
             await viewModel.performRefresh()
         }
@@ -152,12 +162,24 @@ struct WellnessView: View {
                 }
 
                 // Hero Card
-                WellnessHeroCard(
-                    score: viewModel.wellnessScore,
-                    sleepScore: viewModel.sleepScore,
-                    conditionScore: viewModel.conditionScore,
-                    bodyScore: viewModel.bodyScore
-                )
+                if viewModel.wellnessScore != nil {
+                    NavigationLink(value: WellnessScoreDestination()) {
+                        WellnessHeroCard(
+                            score: viewModel.wellnessScore,
+                            sleepScore: viewModel.sleepScore,
+                            conditionScore: viewModel.conditionScore,
+                            bodyScore: viewModel.bodyScore
+                        )
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    WellnessHeroCard(
+                        score: viewModel.wellnessScore,
+                        sleepScore: viewModel.sleepScore,
+                        conditionScore: viewModel.conditionScore,
+                        bodyScore: viewModel.bodyScore
+                    )
+                }
 
                 // 2-column grid
                 if !viewModel.vitalCards.isEmpty {
@@ -266,6 +288,7 @@ struct WellnessView: View {
 
 // MARK: - Navigation Destinations
 
+struct WellnessScoreDestination: Hashable {}
 struct BodyHistoryDestination: Hashable {}
 struct InjuryHistoryDestination: Hashable {}
 
