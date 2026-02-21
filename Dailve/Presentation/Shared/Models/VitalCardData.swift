@@ -9,7 +9,8 @@ enum CardSection: String, Sendable {
         switch category {
         case .weight, .bmi, .bodyFat, .leanBodyMass:
             return .physical
-        default:
+        case .hrv, .rhr, .heartRate, .sleep, .exercise, .steps,
+             .spo2, .respiratoryRate, .vo2Max, .heartRateRecovery, .wristTemperature:
             return .active
         }
     }

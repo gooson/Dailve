@@ -15,7 +15,7 @@ struct HeartRateZoneChartView: View {
             Chart(zones) { zone in
                 BarMark(
                     x: .value("Time", zone.durationSeconds / 60.0),
-                    y: .value("Zone", zone.zone.label)
+                    y: .value("Zone", zone.zone.displayName)
                 )
                 .foregroundStyle(zone.zone.color)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -78,6 +78,16 @@ struct HeartRateZoneChartView: View {
 // MARK: - HeartRateZone.Zone View Extension
 
 extension HeartRateZone.Zone {
+    var displayName: String {
+        switch self {
+        case .zone1: "Recovery"
+        case .zone2: "Fat Burn"
+        case .zone3: "Cardio"
+        case .zone4: "Hard"
+        case .zone5: "Peak"
+        }
+    }
+
     var color: Color {
         switch self {
         case .zone1: DS.Color.zone1

@@ -199,8 +199,6 @@ struct WellnessView: View {
                                 .buttonStyle(.plain)
                             }
                         }
-
-
                     }
                 }
 

@@ -15,16 +15,6 @@ struct HeartRateZone: Sendable, Identifiable {
         case zone4 = 4 // Hard (80-90%)
         case zone5 = 5 // Peak (90-100%)
 
-        var label: String {
-            switch self {
-            case .zone1: "Recovery"
-            case .zone2: "Fat Burn"
-            case .zone3: "Cardio"
-            case .zone4: "Hard"
-            case .zone5: "Peak"
-            }
-        }
-
         /// HR range as fraction of maxHR (lower bound inclusive, upper bound exclusive except zone5).
         var hrFractionRange: ClosedRange<Double> {
             switch self {
