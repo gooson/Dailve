@@ -122,6 +122,9 @@ struct WellnessView: View {
         .navigationDestination(for: HealthMetric.self) { metric in
             MetricDetailView(metric: metric)
         }
+        .navigationDestination(for: AllDataDestination.self) { destination in
+            AllDataView(category: destination.category)
+        }
         .navigationDestination(for: BodyHistoryDestination.self) { _ in
             BodyHistoryDetailView(viewModel: bodyViewModel)
         }
