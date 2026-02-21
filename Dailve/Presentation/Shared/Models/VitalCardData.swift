@@ -1,8 +1,24 @@
 import Foundation
 
+/// Identifies which section a vital card belongs to in the Wellness tab.
+enum CardSection: String, Sendable {
+    case physical
+    case active
+
+    static func section(for category: HealthMetric.Category) -> CardSection {
+        switch category {
+        case .weight, .bmi, .bodyFat, .leanBodyMass:
+            return .physical
+        default:
+            return .active
+        }
+    }
+}
+
 struct VitalCardData: Identifiable, Hashable, Sendable {
     let id: String
     let category: HealthMetric.Category
+    let section: CardSection
     let title: String
     let value: String
     let unit: String
